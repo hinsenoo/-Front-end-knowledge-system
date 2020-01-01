@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        div {
+            width: 500px;
+            height: 500px;
+            border: 1px solid red;
+            /* position: relative; */
+        }
+        p {
+            border: 1px solid green;
+        }
+        /* div::before {
+            content: " ";
+            display: inline-block;
+            height: 100%;
+            width:1%;
+            vertical-align: middle;
+        }
+        div p {
+            display: inline-block;
+            vertical-align: middle;
+            width: 20rem;
+        } */
+        .parent {
+            position: relative;
+        }
+        .child {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            height: 50%;
+            margin: auto 0;
+        }
+        /* p {
+            width: 50px;
+            height: 10px;
+            float: left;
+            position: relative;
+            left: 50%;
+            margin-left: -25px;
+            border: 1px solid green;
+        } */
+        /* .parent {
+            display: flex;
+            justify-content: center;
+        }
+        .child {
+            width:1px;
+            height: 1px;
+        } */
+    </style>
+</head>
+<body>
+    <div class = "parent">
+        <p class="child"></p>
+        <!-- <span>???</span> -->
+    </div>
+</body>
+</html>
