@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        function* generatorFunc() {
+            yield 1;
+            yield 2;
+            return 'end';
+        }
+        
+        let gFunc = generatorFunc();
+        console.log(gFunc.next());
+        // {value: 1, done: false}
+        gFunc.next()    //{value: 2, done: false}
+        gFunc.next();   //{value: "end", done: true}
+        gFunc.next();   //{value: undefined, done: true}
+    </script>
+</body>
+</html>
