@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import DoublyLinkedList from './DoublyLinkedList.js';
+        
+        const doublyLinkedList = new DoublyLinkedList();
+        doublyLinkedList.push('a');
+        doublyLinkedList.push('b');
+        doublyLinkedList.push('c');
+        console.log(doublyLinkedList.toString());         // a,b,c
+
+        console.log(doublyLinkedList.getElementAt(2));    // Node {element: "c", next: undefined}
+
+        console.log(doublyLinkedList.insert('z',1));      // true
+        console.log(doublyLinkedList.toString());         // a,z,b,c
+
+        console.log(doublyLinkedList.indexOf('c'));       // 3
+
+        console.log(doublyLinkedList.removeAt(1));        // z
+        console.log(doublyLinkedList.toString());         // a,b,c
+
+        console.log(doublyLinkedList.remove('c'));        // c
+        console.log(doublyLinkedList.toString());         // a,b
+
+        console.log(doublyLinkedList.size());             // 2
+        console.log(doublyLinkedList.isEmpty());          // false
+        console.log(doublyLinkedList.getHead());          // Node {element: "a", next: Node}
+    </script>
+</body>
+</html>

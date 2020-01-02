@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import Set from './Set.js';
+        
+        // 并集
+        // const setA = new Set();
+        // setA.add(1);
+        // setA.add(2);
+        // setA.add(3);
+        // const setB = new Set();
+        // setB.add(3);
+        // setB.add(4);
+        // setB.add(5);
+        // setB.add(6);
+        // const unionAB = setA.union(setB);
+        // console.log(unionAB.values());      //输出为 [1, 2, 3, 4, 5, 6] 
+
+        // 交集
+        // const setA = new Set();
+        // setA.add(1);
+        // setA.add(2);
+        // setA.add(3);
+        // const setB = new Set();
+        // setB.add(2);
+        // setB.add(3);
+        // setB.add(4);
+        // const intersectionAB = setA.intersection(setB);
+        // console.log(intersectionAB.values());   //  [2, 3]
+        
+        // 差集
+        // const setA = new Set();
+        // setA.add(1);
+        // setA.add(2);
+        // setA.add(3);
+        // const setB = new Set();
+        // setB.add(2);
+        // setB.add(3);
+        // setB.add(4);
+        // const differenceAB = setA.difference(setB);
+        // console.log(differenceAB.values());     // [1]
+
+        // 子集
+        const setA = new Set();
+        setA.add(1);
+        setA.add(2);
+        const setB = new Set();
+        setB.add(1);
+        setB.add(2);
+        setB.add(3);
+        const setC = new Set();
+        setC.add(2);
+        setC.add(3);
+        setC.add(4);
+        console.log(setA.isSubsetOf(setB));     // true
+        console.log(setA.isSubsetOf(setC));     // false
+    </script>
+</body>
+</html>

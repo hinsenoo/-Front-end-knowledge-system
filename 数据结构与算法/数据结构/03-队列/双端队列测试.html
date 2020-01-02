@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import Deque from './Deque.js';
+        
+        const deque = new Deque();
+        console.log(deque.isEmpty()); // 输出 true
+        deque.addBack('John');
+        deque.addBack('Jack');
+        console.log(deque.toString()); // John, Jacks
+        deque.addBack('Camila');
+        console.log(deque.toString()); // John, Jack, Camila
+        console.log(deque.size()); // 输出 3
+        console.log(deque.isEmpty()); // 输出 false
+        deque.removeFront(); // 移除 John
+        console.log(deque.toString()); // Jack, Camila
+        deque.removeBack(); // Camila 决定离开
+        console.log(deque.toString()); // Jack
+        deque.addFront('John'); // John 回来询问一些信息
+        console.log(deque.toString()); // John, Jack
+    </script>
+</body>
+</html>

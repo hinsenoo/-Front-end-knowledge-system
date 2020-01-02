@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import Dictionary from './Dictionary.js';
+
+        let dictionary = new Dictionary();
+        dictionary.set('Gandalf', 'gandalf@email.com');
+        dictionary.set('John', 'johnsnow@email.com');
+        dictionary.set('Tyrion', 'tyrion@email.com');
+
+        console.log(dictionary.hasKey('Gandalf'));         // true
+
+        console.log(dictionary.size());                 // 3
+
+        console.log(dictionary.keys());                 //  ["Gandalf", "John", "Tyrion"]
+        console.log(dictionary.values());               //  ["gandalf@email.com", "johnsnow@email.com", "tyrion@email.com"]
+        console.log(dictionary.get('Tyrion'));          // tyrion@email.com
+
+        dictionary.remove('John');
+        console.log(dictionary.keys());                 // ["Gandalf", "Tyrion"]
+        console.log(dictionary.values());               // ["gandalf@email.com", "tyrion@email.com"]
+        console.log(dictionary.getItems());             // {Gandalf: "gandalf@email.com", Tyrion: "tyrion@email.com"}
+
+    </script>
+</body>
+</html>

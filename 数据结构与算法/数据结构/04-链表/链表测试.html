@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import LinkedList from './LinkedList.js';
+        
+        const linkedList = new LinkedList();
+        linkedList.push('a');
+        linkedList.push('b');
+        linkedList.push('c');
+        console.log(linkedList.toString());         // a,b,c
+
+        console.log(linkedList.getElementAt(2));    // Node {element: "c", next: undefined}
+
+        console.log(linkedList.insert('z',1));      // true
+        console.log(linkedList.toString());         // a,z,b,c
+
+        console.log(linkedList.indexOf('c'));       // 3
+
+        console.log(linkedList.removeAt(1));        // z
+        console.log(linkedList.toString());         // a,b,c
+
+        console.log(linkedList.remove('c'));        // c
+        console.log(linkedList.toString());         // a,b
+
+        console.log(linkedList.size());             // 2
+        console.log(linkedList.isEmpty());          // false
+        console.log(linkedList.getHead());          // Node {element: "a", next: Node}
+    </script>
+</body>
+</html>

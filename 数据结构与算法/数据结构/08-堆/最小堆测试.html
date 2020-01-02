@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import MinHeap from './MinHeap.js';
+
+        let heap = new MinHeap();
+        // heap.insert(2);
+        // heap.insert(3);
+        // heap.insert(4);
+        // heap.insert(5);
+
+        // heap.insert(1);
+        
+
+        // console.log('Heap size: ', heap.size()); // 5
+        // console.log('Heap is empty: ', heap.isEmpty()); // false
+        // console.log('Heap min value: ', heap.findMinimum()); // 1
+
+        // console.log(heap);
+        // console.log(heap.heap.shift());
+        // console.log(heap);
+
+        for (let i = 1; i < 10; i++) {
+            heap.insert(i);
+        }
+        console.log('Extract minimum: ', heap.extract()); // 1
+    </script>
+</body>
+</html>

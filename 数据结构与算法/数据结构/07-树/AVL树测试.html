@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import AVLTree from './AVLTree.js';
+
+        const tree = new AVLTree();
+        tree.insert(50);
+        tree.insert(80);
+        tree.insert(70);
+        tree.insert(72);
+        tree.insert(90);
+
+        const printNode = (value) => console.log(value);
+        // tree.inOrderTraverse(printNode);
+        tree.preOrderTraverse(printNode);
+
+        // tree.insert(75);
+        // tree.preOrderTraverse(printNode);
+
+        tree.remove(50);
+        tree.preOrderTraverse(printNode);
+    </script>
+</body>
+</html>

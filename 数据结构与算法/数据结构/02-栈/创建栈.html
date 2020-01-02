@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        function Stack(){
+            // 创建数组来保存栈的元素
+            var items = [];
+
+            // 添加元素到栈顶
+            this.push = function(element){
+                items.push(element);
+            }
+
+            // 移除栈顶元素，并返回该元素
+            this.pop = function(element){
+                // 返回被移除的元素
+                return items.pop();
+            }
+
+            // 返回栈顶的元素
+            this.peek = function (){
+                return items[items.length-1];
+            }
+
+            // 检测栈是否为空
+            this.isEmpty = function (){
+                return items.length == 0;
+            }
+
+            // 返回栈里元素个数
+            this.size = function(){
+                return items.length;
+            }
+
+            // 清空栈
+            this.clear = function(){
+                items = [];
+            }
+
+            // 输出元素到控制台
+            this.print = function(){
+                console.log(items.toString());
+            }
+        }
+
+        // 测试
+        var stack = new Stack();
+        console.log(stack.isEmpty());
+
+        stack.push(5);
+        stack.push(8);
+
+        console.log(stack.peek());
+        
+        stack.push(11);
+        console.log(stack.size());
+        console.log(stack.isEmpty());
+
+        stack.push(15);
+
+        stack.pop();
+        stack.pop();
+        console.log(stack.size());
+        stack.print();
+        
+
+        class Person {
+            constructor (name) {
+            this._name = name; // {1}
+            }
+            get name() { // {2}
+            return this._name;
+            }
+            set name(value) { // {3}
+            this._name = value;
+            }
+            }
+            let lotrChar = new Person('Frodo');
+            console.log(lotrChar.name); // {4}
+            lotrChar.name = 'Gandalf'; // {5}
+            console.log(lotrChar.name);
+            lotrChar._name = 'Sam'; // {6}
+            console.log(lotrChar.name);
+    </script>
+</body>
+</html>

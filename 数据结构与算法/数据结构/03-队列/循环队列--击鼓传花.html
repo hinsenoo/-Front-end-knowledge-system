@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import Queue from './Queue.js';
+        /*
+        *@param{Array} elementsList 参与者名单
+        *@param{Number} num 传递次数（模拟击鼓停止）
+        */
+        function hotPotato(elementsList, num) {
+            // 初始化游戏队列
+            const queue = new Queue();
+            // 存放淘汰者名单
+            const elimitatedList = [];
+            
+            // 将参与者名称逐个入队
+            for(let i = 0; i < elementsList.length; i++){
+                queue.enqueue(elementsList[i]);
+            }
+            console.log(queue);
+            
+            // 剩下一个胜者才跳出循环
+            while(queue.size() > 1){
+                // 默认从队首开始传（花在队首手里）
+                for(let i = 0; i < num; i++){
+                    // 将出队的元素添加到队末，形成环状循环
+                    queue.enqueue(queue.dequeue());
+                }
+                // 达到传递次数，移除此刻队首（即拥有花的参与者），并且存入淘汰者名单
+                elimitatedList.push(queue.dequeue());
+            }
+            
+            console.log(elimitatedList);
+            return {
+                // 淘汰者名单
+                eliminated: elimitatedList,
+                // 获胜者（队列中剩下的唯一参与者）
+                winner: queue.dequeue()
+            }
+        }
+
+        const names = ['John', 'Jack', 'Camila', 'Ingrid', 'Carl'];
+        const result = hotPotato(names, 7);
+
+        result.eliminated.forEach(name => {
+            console.log(`${name}在击鼓传花游戏中被淘汰。`);
+        });
+        console.log(`胜利者： ${result.winner}`);
+    </script>
+</body>
+</html>

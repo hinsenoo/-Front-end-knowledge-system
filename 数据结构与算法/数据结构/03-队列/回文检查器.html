@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import Deque from './Deque.js';
+        /*
+        *@param {String} aString 被检查字符串
+        *@return {Boolean} 是否为回文
+        */
+        function palindromeChecker(aString){
+            // 检查传入字符串是否合法（undefined,null,''）
+            if(aString === undefined || aString === null || (aString !== null && aString.length === 0)) {
+                return false;
+            }
+            // 创建双端队列
+            const deque = new Deque();
+            // 先全部转换为小写split(' ')去除字符串中的空格然后转换为数组，再用join方法拼接
+            const lowerString = aString.toLocaleLowerCase().split(' ').join('');
+            let isEqual = true;
+            let firstChar, lastChar;
+            
+            for(let i = 0; i < lowerString.length; i++){
+                // 把字符逐个加入队列中
+                deque.addBack(lowerString.charAt(i));
+            }
+            
+            // 队列不为空，且上次比较相等
+            while(deque.size() > 1 && isEqual){
+                // 分别取出队首队尾
+                firstChar = deque.removeFront();
+                lastChar = deque.removeBack();
+                // 首尾相等
+                if(firstChar !== lastChar) {
+                    isEqual = false;
+                }
+            }
+            
+            return isEqual;
+        }
+
+        console.log('a', palindromeChecker('a'));
+        console.log('asda', palindromeChecker('asda'));
+        console.log('kayak', palindromeChecker('kayak'));
+        console.log('level', palindromeChecker('level'));
+        console.log('Was it a car or a cat I saw', palindromeChecker('Was it a car or a cat I saw'));
+        console.log('Step on no pets', palindromeChecker('Step on no pets'));
+    </script>
+</body>
+</html>

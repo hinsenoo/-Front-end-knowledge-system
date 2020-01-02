@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script type="module">
+        import CircularLinkedList from './CircularLinkedList.js';
+        
+        const circularLinkedList = new CircularLinkedList();
+        circularLinkedList.push('a');
+        circularLinkedList.push('b');
+        circularLinkedList.push('c');
+        console.log(circularLinkedList.toString());         // a,b,c
+
+        console.log(circularLinkedList.getElementAt(2));    // Node {element: "c", next: undefined}
+
+        console.log(circularLinkedList.insert('z',1));      // true
+        console.log(circularLinkedList.toString());         // a,z,b,c
+
+        console.log(circularLinkedList.indexOf('c'));       // 3
+
+        console.log(circularLinkedList.removeAt(1));        // z
+        console.log(circularLinkedList.toString());         // a,b,c
+
+        console.log(circularLinkedList.remove('c'));        // c
+        console.log(circularLinkedList.toString());         // a,b
+
+        console.log(circularLinkedList.size());             // 2
+        console.log(circularLinkedList.isEmpty());          // false
+        console.log(circularLinkedList.getHead());          // Node {element: "a", next: Node}
+    </script>
+</body>
+</html>

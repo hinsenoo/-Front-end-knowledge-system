@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Page Title</title>
+</head>
+<body>
+    <script>
+        var fibonacci = [];
+        // 已知数列第一个为1 第二个为2
+        fibonacci[1] = 1;
+        fibonacci[2] = 1;
+
+        for (var i = 3; i < 20; i++){
+            // 输出数列的前两位
+            if(i == 3){ 
+                console.log(fibonacci[1]);
+                console.log(fibonacci[1]);
+            }
+            // 从第三项开始，每一项都等于前两项之和
+            fibonacci[i] = fibonacci[i-1] + fibonacci[i-2];
+            console.log(fibonacci[i]);
+        }
+    </script>
+</body>
+</html>

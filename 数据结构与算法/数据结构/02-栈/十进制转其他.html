@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Page Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <script type="module">
+        import Stack from './Stack.js'
+        
+        function baseConverter(decNumber, base){
+            const remStack = new Stack();
+            
+            // 进制相应的基数字符  （1）
+            const digits = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            
+            let number = decNumber
+            let rem;
+            let binaryString = '';
+            
+            // 进制转换范围 2--36
+            if (!(base >= 2 && base <= 36)) {
+                return '';
+            }
+            
+            while (number > 0) {
+                rem = Math.floor( number % base );
+                remStack.push(rem);
+                number = Math.floor( number / base );
+            }
+            
+            while(!remStack.isEmpty()) {
+                // 取出对应的字母基数进行拼接  （2）
+                binaryString += digits[remStack.pop()];
+            }
+            
+            return binaryString;
+        }
+
+        console.log(baseConverter(100345,2));
+        console.log(baseConverter(100345,8));
+        console.log(baseConverter(100345,16));
+        console.log(baseConverter(100345,35));
+    </script>
+</body>
+</html>
