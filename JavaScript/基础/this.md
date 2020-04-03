@@ -306,16 +306,17 @@ baz.val;
 
 ```js
 function _new(){
-    // 创建一个新的对象
+    // 1. 创建一个新的空对象
     var obj = new Object();
-    // 获得函数，然后进行构造调用
-    // 使用 shift 获取并除去 arguments 的第一个参数
+    // 2. 获得函数，然后进行构造调用, 使用 shift 获取并除去 arguments 的第一个参数
     fn = Array.prototype.shift.call(arguments);
-    // 将新对象的原型指向构造函数的原型
+    // 3. 将新对象的原型链接到构造函数的原型
     obj.__proto__ = fn.prototype;
-    // 显式绑定 this，改变构造函数 this 的指向到新对象上，这样新对象就可以访问构造函数中的属性
+    // 更恰当应该使用：
+    // Object.setPrototypeOf(obj, fn.prototype);
+    // 4. 显式绑定 this，改变构造函数 this 的指向到新对象上，这样新对象就可以访问构造函数中的属性
     var ret = fn.apply(obj, arguments);
-    // 优先返回构造函数返回的对象
+    // 5. 优先返回构造函数返回的对象
     return ret instanceof Object ? ret : obj;
 }
 ```
