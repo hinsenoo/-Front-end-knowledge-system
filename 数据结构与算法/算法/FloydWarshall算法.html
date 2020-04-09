@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        // 图的邻接矩阵
+        var graph = [[0, 2, 4, 0, 0, 0],
+                    [0, 0, 3, 4, 2, 0],
+                    [0, 0, 0, 0, 3, 0],
+                    [0, 0, 0, 0, 0, 2],
+                    [0, 0, 0, 3, 0, 2],
+                    [0, 0, 0, 0, 0, 0]];
+
+        // 无穷大常量
+        const INF = Number.MAX_SAFE_INTEGER;
+        
+        var graph2 = [[0, 2, 6, 4],
+                      [0, 0, 3, 0],
+                      [7, 0, 0, 1],
+                      [5, 0, 12, 0]];
+        /**
+         * Floyd-Warshall 算法
+         * @param {*} dist     图的邻接矩阵
+         */
+        const floydWarshall = graph => {
+            // 用来存储各个顶点之间的最短距离
+            const dist = [];
+            // 解构，图的顶点数量
+            const { length } = graph;
+            // 初始化为二维数组，并且初始化顶点间距离
+            for(let i = 0; i < length; i++){
+                dist[i] = [];
+                for (let j = 0; j < length; j++) {
+                    if (i === j) {
+                        // 顶点到自身的距离
+                        dist[i][j] = 0;
+                    }else if(graph[i][j] == 0){
+                        // 若两点之间不连通，则设为无穷大
+                        dist[i][j] = INF;
+                    }else {
+                        // 若连通（有值），则设置为距离
+                        dist[i][j] = graph[i][j];
+                    }
+                }
+            }
+            // 开始遍历所有顶点
+            // 起始顶点 i
+            for (let i = 0; i < length; i++) {
+                // 中转顶点 k
+                for (let k = 0; k < length; k++) {
+                    // 终点 j
+                    for (let j = 0; j < length; j++) {
+                        // 如果顶点 i 经过顶点 k 再到顶点 j 的路径比顶点 i 直接到顶点 j 的路径短
+                        // 那么更新 i 到 j 的距离
+                        if(dist[i][k] + dist[k][j] < dist[i][j]) {
+                            dist[i][j] = dist[i][k] + dist[k][j]; 
+                        }
+                    }
+                }
+            }
+            return dist;
+        };
+
+        console.log(floydWarshall(graph2));
+    </script>
+</body>
+</html>
