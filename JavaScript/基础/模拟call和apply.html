@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        Function.prototype.call2 = function(context) {
+            // 获取当前时间戳作为属性名,避免属性覆盖
+            var fn = '_' + new Date().getTime();
+            // 当指定 this 为 null，视为指向 window
+            var context = context ? Object(context) : window;
+            context[fn] = this;
+            
+            // 获取函数执行参数 args =>  ["arguments[1]", "arguments[2]",...]
+            var args = [];
+            // 由于 argumentss 是类数组对象，所以可以使用 for 循环
+            for(var i = 1, len = arguments.length; i < len; i++){
+                args.push('arguments['+ i +']');
+            }
+            
+            // 执行函数,传递参数 并获取函数的返回值
+            var result = eval('context[fn]('+ args +')');
+            
+            delete context[fn];     
+            // 返回函数的返回值
+            return result
+        }
+        var obj = { a:1 };
+        function foo(a,b) {
+            this.a = a;
+            this.b = b;
+        }
+        foo.call2(obj,2,3);
+        console.log(obj);// {a: 2, b: 3}
+
+        Function.prototype.apply2 = function(context) {
+            var fn = '_' + new Date().getTime();
+            var context = context ? Object(context) : window;
+            context[fn] = this;
+            
+            var result;
+            // 判断是否有第二个参数
+            if(!arguments[1]){
+                // 若无需传递参数，则直接执行
+                result = context[fn]();
+            }else{
+                var args = [];
+                for(var i = 1, len = arguments.length; i < len; i++){
+                    args.push('arguments['+ i +']');
+                }
+                result = eval('context[fn]('+ args +')');
+            }
+            
+            delete context[fn];     
+            return result
+        }
+        foo.apply2(obj,[3,4]);
+    </script>
+</body>
+</html>
