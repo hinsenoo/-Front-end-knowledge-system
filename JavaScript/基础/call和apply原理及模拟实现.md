@@ -68,6 +68,65 @@
 
 ### 使用场景
 
+`call` 和 `apply` 使用场景类似，主要是逐个传入参数还是传入参数数组的区别而已。
+
+**借用构造函数**：
+
+借用构造函数，可以实现类似继承的效果：
+
+```js
+function Parent(name) {
+    this.name = name;
+}
+function Child(){
+    // 借用 Parent 的构造函数
+    Parent.apply(this, arguments);
+}
+var child = new Child('gy');
+console.log(child.name); // gy
+```
+
+**类数组对象使用数组方法**
+
+类数组对象并不是真正的数组，为了能使用数组的一些方法，常常需要借用 `Array.prototype` 对象上的方法
+
+(类数组：具有对象元素的数字索引下标和 `length` 属性，不具有数组对象具有的方法。例如：arguments 对象、 NodeList 对象)
+
+```js
+var domNodes = Array.prototype.slice.call(document.getElementsByTagName("*"));
+```
+
+可以通过 `Array.prototype.slice.call` 转换为真正的数组。
+
+补充：其他类数组转数组方法
+
+- 上面代码等同于：`[].slice.call(arguments)`
+- ES6：`Array.from(arguments)` 、`[...arguments]`
+
+**检测对象类型**
+
+可以通过 `toString()` 来获取每个对象的类型，但是不同对象的 `toString()` 有不同实现，所以通过 `Object。prototype.toString()` 来检测，需要以 `call/apply()` 的形式来调用，传递要检查的对象作为第一个参数。
+
+```js
+Object.prototype.toString.call([]);
+// "[object Array]"
+```
+
+**借用内置对象的方法**
+
+例如：
+
+`Math.max` 函数使用方法：`Math.max(arg1,arg2,arg3,...);`  借用 `apply` 来传入数组， `Math.min`同理
+
+```js
+var arr=[1,3,5,7,9];
+// Math.max不支持 Math.max(arr);
+
+// apply方法应用：传入不存在的 Null 对象
+var max2=Math.max.apply(null,arr);
+console.log(max2)  // 9; 
+```
+
 
 
 ## 二、call 的模拟实现
@@ -296,7 +355,14 @@ Function.prototype.myApply = function (context,arr) {
 
 注：**ECMAScript 规范提到：Funcition.prototype.bind 创建的函数对象不包括 prototype 属性，[[Code]], [[FormalParameters]],[[Scope]] 内部属性。**
 
+### 与 call、apply 的异同
+
+1. `call、apply、bind` 都用于改变 `this` 绑定，但 `call、apply` 在改变 `this` 指向的同时还会执行函数，而 `bind`  在改变 `this` 后是一个全新的函数。
+2. `bind` 属于硬绑定，返回的新函数的 `this` 指向无法再次通过显式绑定来修改，`call` 与 `apply` 的绑定只适合当前调用，调用完就结束了，再次调用需要重新绑定。
+
 ### 使用场景
+
+**缓存 this 值**：
 
 ```js
 function Person(name){
@@ -346,12 +412,221 @@ var person = new Person('gy');
 person.fn();// gy
 ```
 
-### 与 call、apply 的异同
+**柯里化（curry）**
 
-1. `call、apply、bind` 都用于改变 `this` 绑定，但 `call、apply` 在改变 `this` 指向的同时还会执行函数，而 `bind`  在改变 `this` 后是一个全新的函数。
-2. `bind` 属于硬绑定，返回的新函数的 `this` 指向无法再次通过显式绑定来修改，`call` 与 `apply` 的绑定只适合当前调用，调用完就结束了，再次调用需要重新绑定。
+柯里化定义：是一种将使用多个参数的一个函数转换成一系列使用一个参数的函数的技术。
 
+`bind` 传递参数供新函数后续调用的特性，也是函数柯里化。
 
+可以一次性地调用柯里化函数，也可以每次只传一个参数分多次调用。
+
+```js
+var add = function(x) {
+  return function(y) {
+    return x + y;
+  };
+};
+var add1 = add(1);
+var add10 = add(10);
+
+add1(2);// 3
+add10(2);// 12
+```
+
+这里定义了一个 `add` 函数，它接受一个参数并返回一个新的函数。调用 `add` 并传递参数后，返回的函数通过闭包记住了 `add` 的第一个参数。
 
 ## 五、bind 的模拟实现
+
+`bind()` 函数是 ES5 提供的，所以在旧版本并不支持。
+
+分析一下 `bind` 函数的特性：
+
+1.  第一个参数可以绑定 `this`
+2.  返回一个函数
+3. 可以传入参数
+4. 函数柯里化
+
+### **1. 绑定 this 以及返回函数**
+
+1. 关于绑定 `this` 可以使用 `call` 或 `apply`  实现。
+
+2. 使用 `return` 返回一个函数。
+
+```js
+// 第一版
+Function.prototype.bind2 = function(context) {
+    // 获取函数，this 指向调用函数
+    var self = this;
+    // 返回一个绑定 this 的函数
+    return function(){
+        // 考虑绑定函数可能有返回值
+        return self.apply(context);
+    }
+}
+```
+
+### **2. 传递参数，柯里化**
+
+传递参数：使用 `arguments` 获取参数数组，并且处理为除去第一个参数获得剩余参数的数组 `args`。
+
+柯里化：获取 `bind`返回的函数的参数数组 `bindArgs`，然后与 `bind`传入的函数参数数组合并为一个参数数组 **args**，传给 `seft.apply()`。
+
+```js
+// 第二版
+Function.prototype.bind2 = function(context) {
+    
+    var self = this;
+    // 获取 bind2 函数除去第一个的其余参数 arr.slice(begin, end);
+    var args = Array.prototype.slice.call(arguments, 1);
+    
+    return function() {
+        // 获取 bind 返回的函数传入的参数(返回的函数的 arguments)
+        var bindArgs = Array.prototype.slice.call(arguments);
+        // 绑定 this，并且拼接参数数组传入
+        return self.apply(context, args.concat(bindArgs));
+    }
+}
+```
+
+### 3. 模拟构造函数效果
+
+`bind` 还有一个特点就是：
+
+- 一个绑定函数也能使用 `new` 操作符创建对象：这种行为就像把原函数当成构造器，提供的 `this` 值被忽略，同时调用时的参数被提供给模拟函数。
+
+也就是说当 `bind` 返回的函数作为构造函数时，`bind` 指定的 `this` 值会失效，但传入的参数依然生效。
+
+举个例子：
+
+```js
+var value = 2;
+
+var foo = {
+	value: 1
+};
+
+function bar(name,age) {
+    this.habit = 'shopping';
+    console.log(this.value);
+    console.log(name);
+    console.log(age);
+}
+bar.prototype.friend = 'kevin';
+
+var bindFoo = bar.bind(foo, 'jack');
+
+var obj = new bindFoo(20);
+// undefined  =====> obj.value
+// daisy
+// 20
+console.log(obj.habit);
+console.log(obj.friend);
+// shopping
+// kevin
+```
+
+注：虽然在全局和 `foo` 中都声明了 `value` 值，但是最后返回了 undefined，这说明 `bind` 绑定的 `this` 失效了，原因是因为 `new`  操作符将 `this` 绑定到创建的新对象 `obj` 上，所以输出 undefined。（[new的实现原理]()）
+
+我们可以通过修改返回函数的原型来实现：
+
+```js
+// 第三版
+Function.prototype.bind2 = function(context) {
+    var self = this;
+    var args = Array.prototype.slice.call(arguments,1);
+    
+    // 返回的绑定函数
+    var fBound = function(){
+        var bindArgs = Array.prototype.slice.call(arguments);
+        
+        // 1.
+        return self.apply(
+        	this instanceof fBound ? this : context,
+            args.concat(bindArgs)
+        );
+    }
+    // 2
+    fBound.prototype = this.prototype;
+    return fBound;
+}
+```
+
+- 1.1 当 `fBound` 作为构造函数时，`this` 会指向（`fBound` 的）实例，此时  `this instanceof fBound` 结果为 `true`，可以让实例获得来自绑定函数的值，即上个例中实例会具有 `habit` 属性。
+- 1.2 当作为普通函数时， `this` 指向 `window`，此时结果为 `false`，将绑定函数的 `this` 指向 `context`
+
+- 2 . 修改返回函数 `fBound` 的 `prototype` 为绑定函数的 `prototype`，实例就可以继承绑定函数中的原型中的值，即上例中 `obj` 可以获取到 `bar` 原型上的 `friend`。
+
+### 4. 问题优化
+
+1. 在第三版的写法中，直接将 `fBound.prototype = this.prototype`，当我们直接修改 `fBound.prototype` 时，也会直接修改被绑定函数 （上例的 `bar`） 的 `prototype`。这个时候，可以通过一个空函数来进行中转，把 `fBound.prototype`赋值为空对象的实例（原型式继承）。
+
+   ```js
+   Function.prototype.bind2 = function(context) {
+       var self = this;
+       var args = Array.prototype.slice.call(arguments,1);
+       
+       var fNOP = function() {};			// 创建一个空对象
+       
+       var fBound = function() {
+           var bindArgs = Array.prototype.slice.call(arguments);
+           
+           // 这里要判断是否为 fNOP 的实例
+           return self.apply(
+           	this instanceof fNOP ? this : context,
+               args.concat(bindArgs)
+           );
+       }
+       
+       fNOP.prototype = this.prototype;	// 空对象的原型指向绑定函数的原型
+       fBound.prototype = new fNOP();		// 空对象的实例赋值给 fBound.prototype
+       return fBound;
+   }
+   ```
+
+   - ES5 的话直接：`fBound.prototype = Object.create(this.prototype);` 不过部分旧浏览器并不支持。
+
+2. **若调用 bind 的不是函数，需要抛出异常**
+
+所以最终完整版的模拟实现代码如下：
+
+```js
+// 最终版
+Function.prototype.bind2 = function(context) {
+    // 判断调用的是否为函数
+    if(typeof this !== "function") {
+        throw new Error("Function.prototype.bind - what is trying to be bound is not callable");
+    }
+    // 获取绑定函数
+    var self = this;
+    var args = Array.prototype.slice.call(arguments, 1);
+    
+    var fNOP = function() {};
+    
+    var fBound = function() {
+        var bindArgs = Array.prototype.slice.call(arguments);
+        return self.apply(
+        	this instanceof fNOP ? this : context,
+            args.concat(bindArgs)
+        )
+    }
+    
+    fNOP.prototype = this.prototype;
+    fBound.prototype = new fNOP();
+    return fBound;
+}
+```
+
+
+
+## 参考
+
+> [JavaScript深入之call和apply的模拟实现](https://github.com/mqyqingfeng/Blog/issues/11)
+>
+> [JavaScript深入之bind的模拟实现](https://github.com/mqyqingfeng/Blog/issues/12#)
+>
+> [JavaScript基础心法——call apply bind](https://github.com/axuebin/articles/issues/7#)
+>
+> [不用call和apply方法模拟实现ES5的bind方法](https://github.com/jawil/blog/issues/16#)
+
+
 
