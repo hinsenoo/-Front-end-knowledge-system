@@ -256,7 +256,7 @@ var obj = {
 2. `bind` 属于硬绑定，返回的 `boundFunction` 的 `this` 指向无法再次通过 `call、apply、bind` 修改；`call` 与 `apply` 的绑定只适合当前调用，调用完就结束了，再次调用需要重新绑定。
 3. `call` 与 `apply` 的功能完全相同，唯一不同的是 `call` 方法调传递函数调用的形参必须**一一列举出来**，而 `apply` 方法的形参是一个**数组**。在传参的情况下，`call` 的性能要高于 `apply`，因为 `apply` 在执行时还要多一步解析数组。
 
-详情请至👉 （emmm....  还没写 TODO: call、apply、bind 的原理以及实现---------------------）
+详情请至👉  [call、apply、bind 和 new 的原理及模拟实现](https://juejin.im/post/5e9746f8f265da47e1594afd)
 
 ## 4. new 绑定
 
