@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .container {
+            min-width: 600px; /* 确保中间内容可以显示出来，两倍left宽+right宽 */
+        }
+        .left {
+            float: left;
+            width: 200px;
+            height: 400px;
+            background: red;
+            margin-left: -100%;
+        }
+        .center {
+            float: left;
+            width: 100%;
+            height: 500px;
+            background: yellow;
+        }
+        .center .inner {
+            margin: 0 200px;  /* 新增部分 */
+        }
+        .right {
+            float: left;
+            width: 200px;
+            height: 400px;
+            background: blue;
+            margin-left: -200px;
+        }
+    </style>
+</head>
+<body>
+    <article class="container">
+        <div class="center">
+            <div class="inner">双飞翼布局</div>
+        </div>
+        <div class="left"></div>
+        <div class="right"></div>
+    </article>
+</body>
+</html>

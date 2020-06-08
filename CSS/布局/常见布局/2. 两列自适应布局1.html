@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        /* float + overflow: hidden */
+        .parent {
+            overflow: hidden;
+            zoom: 1;
+        } 
+        .left {
+            float: left;
+            margin-right: 20px;
+        }
+        .right {
+            overflow: hidden;
+            zoom: 1;
+        }
+
+        /* flex 布局 */
+        /* .parent{
+            display: flex;
+        }
+        .right{
+            margin-left: 20px;
+            flex: 1;
+        } */
+
+        /* gird 布局 */
+        /* .parent {
+            display:grid;
+            grid-template-columns:auto 1fr;
+            grid-gap:20px
+        }  */
+    </style>
+</head>
+<body>
+    <div class="parent" style="background-color: lightgrey;">
+        <div class="left" style="background-color: lightblue;">
+            <p>left</p>
+        </div>
+        <div class="right"  style="background-color: lightgreen;">
+            <p>right</p>
+            <p>right</p>
+        </div>        
+    </div>
+</body>
+</html>

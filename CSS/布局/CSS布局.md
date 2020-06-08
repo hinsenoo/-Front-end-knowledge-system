@@ -62,7 +62,7 @@
 >
 > ​	MDN：https://developer.mozilla.org/zh-CN/docs/Web/Guide/CSS/Visual_formatting_model
 
-​		在视觉格式化模型当中，文档树的每个元素根据CSS盒模型生成 0 个或多个盒，每个盒子的布局由（以下因素）绝对：
+​		在视觉格式化模型当中，文档树的每个元素根据CSS盒模型生成 0 个或多个盒，每个盒子的布局由（以下因素）决定：
 
 - 盒子的尺寸：精确指定、由约束条件指定或没有指定。
 
@@ -187,7 +187,7 @@
 #### - 行内级盒子（inline-level boxes）
 
 - 行内级元素生成**行内级盒子**，该盒子会参与 **行内格式化上下文（inline formatting context）**
-- 行内级盒子分为行内盒盒原子行内级盒子。
+- 行内级盒子分为行内盒和原子行内级盒子。
 
 
 
@@ -330,7 +330,7 @@ table | inline-table | table-row-group | table-header-group | table-footer-group
 - 表格单元格  (元素具有`display:table-cell`,表格单元格默认属性)
 - 表格标题 (元素具有`display:table-caption`,表格标题默认属性)
 - `overflow` 不为 `visible` 的块盒子，（除非该值被传播到视口 viewport）
-- 弹性盒子 flex boxe是 (元素具有`display:flex`或`inline-flex` ) ——CSS 3 新增
+- 弹性盒子 flex box是 (元素具有`display:flex`或`inline-flex` ) ——CSS 3 新增
 - display: flow-root 可以创建无副作用的BFC ——CSS 3 新增
 - column-span: all 应当总是会创建一个新的格式化上下文，即便具有 column-span: all 的元素并不被包裹在一个多列容器中。
 
@@ -373,7 +373,7 @@ table | inline-table | table-row-group | table-header-group | table-footer-group
 
   - 可以看出 div 盒子的高度没有所包含的 浮动的 p 盒子高度搞，产生了高度塌陷。
   - 原因是：对于正常流中的块级非替换元素，如果其 overflow 最终计算结果为 visible，那么高度只会考虑在其标准流中的子元素（比如，浮动和绝对定位的盒子是会被忽略的，相对定位的盒子只会考虑其未被定位前的位置）。
-  - 创建 BFC 后 div 盒子在高度上能包裹住 浮动的 p 盒子了
+  - 创建 BFC 后 div 盒子在高度上能包裹住 浮动的 p 盒子了。
 
   ![1576738266665](assets/1576738266665.png)
 
@@ -494,10 +494,191 @@ p {
 
 ##### - 相对定位
 
+**定义：当一个盒子根据文档流或者浮动摆放好后，它可能会相对于该位置移动，这叫相对定位。相对定位的盒保持它在文档流中的大小，包括换行和空格都会原样保留。**
 
+**relative与absolute,fixed**
+
+- `relative` 可以限制 `absolute` 元素的：
+  - 限制 `left / top / right / bottom` 定位。
+  - 限制 `z-index` 层级，`relative`元素与`absolute`元素同级的时候，后面的覆盖前面的元素；当`relative`元素与`absolute`元素嵌套时,`relative`元素的`z-index`决定层叠顺序,`absolute`元素`z-index`失效。
+  - 限制在 `overflow` 下失效的问题，普通`div`元素设置的` overflow:hidden `对于子元素是 `absolute` 的元素无效,而设置 `relative` 的 `div` 元素设置 `overflow:hidden` 可以在子元素 `absolute` 中生效。
+- 而对于`fixed`,`relative`只能限制`z-index`层级
+
+**relative最小化影响原则**
+
+1. 在可以单独使用`absolute`解决问题的时候,不要使用`relative`,如有偏差,可以配合`margin`使用
+2. 一定要使用`relative`的时候,要保证作用范围最小化
 
 #### - 浮动（float）
 
+**定义：浮动元素会脱离文档流并向左/向右浮动，直到碰到父元素或者另一个浮动元素**（浮动最初设计的目的只是用来实现文字环绕效果而已）
+
+**特征**：
+
+- **浮动会脱离文档流**，也就是说浮动不会影响普通元素的布局
+- **浮动可以内联排列**，可以设置宽高，并且能够一行多个，是介于`block`和`inline`之间的存在。（对多个元素设置浮动，可以实现类似`inline-block`的效果；但是如果每个元素的高度不一致，**会出现“卡住”的情况**。）
+- **浮动会导致父元素高度坍塌**
+
+##### **clear 清除浮动**
+
+定义：clear 属性不允许被清除浮动的元素的左边 / 右边挨着浮动元素，底层原理是**在被清除浮动的元素上边或者下边添加足够的清除空间。**
+
+注意：是通过在别的元素上清除浮动来实现撑开高度的，而不是在浮动元素上。
+
+**clear 清除浮动最佳实践：**
+
+通过在浮动元素的末尾添加一个空元素，设置 clear：both属性，after伪元素其实也是通过 content 在元素的后面生成了内容为一个点的块级元素；
+
+```css
+// 现代浏览器clearfix方案，不支持IE6/7
+.clearfix:after {
+    display: table;
+    content: " ";
+    clear: both;
+}
+
+// 全浏览器通用的clearfix方案
+// 引入了zoom以支持IE6/7
+.clearfix:after {
+    display: table;
+    content: " ";
+    clear: both;
+}
+.clearfix{
+    *zoom: 1;
+}
+
+// 全浏览器通用的clearfix方案【推荐】
+// 引入了zoom以支持IE6/7
+// 同时加入:before以解决现代浏览器上边距折叠的问题
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: " ";
+}
+.clearfix:after {
+    clear: both;
+}
+.clearfix{
+    *zoom: 1;
+}
+```
+
+注：`display:table` 本身并不会创建BFC，但是它会产生[匿名框](http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes)(anonymous boxes)，而匿名框中的 `display:table-cell` 可以创建新的BFC，换句话说，触发块级格式化上下文的是匿名框，而不是`display:table`。所以通过`display:table`和`display:table-cell`创建的BFC效果是不一样的。
+
+![img](assets/1158202-4801624dbc6162e8.webp)
 
 
-#### - 绝对定位（absoult positioning）
+
+
+
+##### BFC 清除浮动
+
+BFC 的主要特征：
+
+- BFC 容器是一个隔离的容器，和其他元素互不干扰；所以我们可以用触发两个元素的 BFC 来解决垂直边距折叠问题。
+- BFC 可以包含浮动；通常用来解决浮动父元素高度坍塌的问题。
+
+###### BFC的触发方式
+
+我们可以给父元素添加以下属性来触发BFC：
+ ✦ `float` 为 `left` | `right`
+ ✦ `overflow` 为 `hidden` | `auto` | `scorll`
+ ✦ `display` 为 `table-cell` | `table-caption` | `inline-block` | `flex` | `inline-flex`
+ ✦ `position` 为 `absolute` | `fixed`
+
+所以我们可以给父元素设置`overflow:auto`来简单的实现BFC清除浮动，但是为了兼容IE最好用`overflow:hidden`。但是这样元素阴影或下拉菜单会被截断，比较局限。
+
+```css
+.box-wrapper{
+  overflow: hidden;
+}
+```
+
+#### - 定位（positioning）
+
+想要把一个元素从正常流中移除，或者改变其在正常文档流中的位置，可以使用 CSS 的 `position` 属性。当处于正常文档流时，元素的 `position` 属性为 `static`。在块级维度上元素会一个接一个排列下去，当你滚动页面时元素也会随着滚动。
+
+##### 1. 相对定位（relative positioning)
+
+如果一个元素具有属性 `position: relative`，那么它偏移的参照位是其原先在正常文档流中的位置。你可以使用top、left、bottom和right属性来相对其正常流位置进行移动。
+
+注：页面上的其他元素并不会因该元素的位置变化而受到影响。该元素在正常流中的位置会被保留，因此你需要自己去处理一些元素内容覆盖的情况。
+
+##### 2. 绝对定位（absolute postioning）
+
+给一个元素设置 `position: absolute` 属性可以将其完全从正常流中移除。其原本占据的空间也会被移除。该元素会定位于相对于视口容器，除非其某个祖先元素也是定位元素（`position` 值不为 `static`)
+
+通常情况下你并不希望元素相对于视口进行定位，而是相对于容器元素（祖先元素）。在这种情况下，你需要为容器元素设置一个除了默认`static`之外的值。
+
+由于给一个元素设置`position: relative`并不会将其从正常流中移除，所以通常这是一个不错的选择。给你想要相对的容器元素设置`position : relative`，就可以让绝对定位的元素相对其进行偏移。
+
+##### 3. 固定定位（fixed positioning）
+
+大多数情况下，`position: fixed` 的元素会相对于视口定位，并且会从正常文档流中被移除，不会保留它所占据的空间。当页面滚动时，固定的元素会留在相对于视口的位置，而其他正常流中的内容则和通常一样滚动。
+
+为了使一个固定定位的元素不相对于视口进行定位，你需要为容器元素设置`transform`、`perspective`、`filter`三个属性之一（不为默认值none）。这样固定的元素就会相对于该块级元素偏移，而非视口。
+
+##### 4. sticky 定位
+
+设置 `position: sticky` 会让元素在页面滚动时如同在正常流中，但当其滚动到相对于视口的某个特定位置就会固定在屏幕上，如同 `fixed` 一般。这个属性值是一个比较新的 CSS 属性，在浏览器兼容性上会差一些，但在不兼容的浏览器中会被忽略并回退到正常的滚动情况。
+
+
+
+### 弹性布局（Flex Layout）
+
+弹性盒子（Flexbox）布局是一种为一维布局而设计的布局方法。一维的意思是你希望内容是按行或按列来布局。你可以使用 `display: flex` 来将元素变为弹性布局。
+
+该容器的直接子元素会变为弹性项（flex item），并默认按行排列。
+
+#### 1. 弹性盒子的轴（axes）
+
+弹性项在行内是从起始位置开始排列，而不是说它们是左对齐。这些元素会按行排列是因为默认的 `flex-direction` 值为 `row`，`row` 代表了文本的行文方向。`flex-direction`的值被定义为弹性盒子的**主轴**（main axis）。
+
+**交叉轴**（cross axis）也称为侧轴，是和主轴垂直的一条轴。如果你的`flex-direction`是`row`并且弹性项是按照行内方向排列的，那么交叉轴就是块级元素的排列方向。如果`flex-direction`是`column`那么弹性项就会以块级元素排列的方向排布，然后交叉轴就会变为`row`。
+
+#### 2. 方向和次序
+
+弹性盒子模型可以让我们通过为 `flex-direction` 属性设置 `row-reverse` 或 `column-reverse` 值来改变主轴上弹性项的方向。
+
+#### 3. 一些Flex的属性
+
+这些flex的属性是用来控制弹性项在主轴上空间大小的。这三个属性是：
+
+- flex-grow
+- flex-shrink
+- flex-basis
+
+通常可以使用它们的简写形式：flex。跟上面三个值分别对应
+
+```css
+.item {
+    flex: 1 1 200px;
+}
+```
+
+`flex-basis`会为弹性项设置未拉伸和压缩时的初始大小。在上面的例子中，大小是200px，因此我们会给每个项200px的空间大小。但是大多数情况下容器元素大小不会正好被分为许多200px大小的项，而是可能有一些不足或剩余空间。`flex-grow`和`flow-shrink`属性允许我们在容器大小不足或有空余时控制各个弹性项的大小。
+
+如果`flex-grow`的值是任意的正数，那么弹性项会被允许拉伸来占据更多的空间。因此，在上面的例子中，当各项被设为200px后，所有多余的空间会被每个弹性项平分并填满。
+
+如果`flex-shrink`的值为任意的正数，那么当弹性项被设置了`flex-basis`后，元素溢出容器时会进行收缩。在上面这个CSS的例子中，如果容器空间不足，每个弹性项会等比例缩放以适应容器的大小。
+
+`flex-grow`和`flex-shrink`的值可以是任意的正数。一个具有较大`flex-grow`值的弹性项会在容器有剩余空间时拉伸更大的比例；而一个具有更大`flex-shrink`值的项则会在容器空间不足时被压缩的更多。
+
+
+
+### 网格布局（gird box）
+
+
+
+
+
+
+
+
+
+## 参考
+
+[视觉格式化模型(Visual formatting model)](https://segmentfault.com/a/1190000008541494)
+
+[一篇全面的CSS布局学习指南 [译]](https://juejin.im/post/5b3b56a1e51d4519646204bb#heading-43)

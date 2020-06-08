@@ -95,45 +95,45 @@ Webkit内核：Safari,Chrome等。   [ Chrome的：Blink（WebKit的分支）]
 #### 10. HTML5的离线储存怎么使用，工作原理能不能解释一下？
 
 ```
-在用户没有与因特网连接时，可以正常访问站点或应用，在用户与因特网连接时，更新用户机器上的缓存文件。
-原理：HTML5 的离线存储是基于一个新建的.appcache文件的缓存机制(不是存储技术)，通过这个文件上的解析清单离线存储资源，这些资源就会像 cookie 一样被存储了下来。之后当网络在处于离线状态下时，浏览器会通过被离线存储的数据进行页面展示。
+所谓的离线存储就是将一些资源文件保存在本地，这样后续的页面加载将使用本地的资源文件，在
+离线的情况下可以继续访问web应用。
 
-如何使用：
- 1、页面头部像下面一样加入一个manifest的属性；
-2、在cache.manifest文件的编写离线存储的资源；
-    CACHE MANIFEST
-    #v0.11
-    CACHE:
-    js/app.js
-    css/style.css
-    NETWORK:
-    resourse/logo.png
-    FALLBACK:
-    / /offline.html
-3、在离线状态时，操作window.applicationCache进行需求实现。
+原理：HTML5 的离线存储是基于一个新建的.appcache 文件的缓存机制（不是存储技术），通过这个文
+件上的解析清单离线存储资源，这些资源就会像cookie一样被存储了下来。
 ```
 
 #### 11. 浏览器是怎么对HTML5的离线储存资源进行管理和加载的呢？
 
 ```
-在线的情况下，浏览器发现html头部有manifest属性，它会请求manifest文件，如果是第一次访问app，那么浏览器就会根据manifest文件的内容下载相应的资源并且进行离线存储。如果已经访问过app并且资源已经离线存储了，那么浏览器就会使用离线的资源加载页面，然后浏览器会对比新的manifest文件与旧的manifest文件，如果文件没有发生改变，就不做任何操作，如果文件改变了，那么就会重新下载文件中的资源并进行离线存储。
-离线的情况下，浏览器就直接使用离线存储的资源。
+（1）html5是使用一个manifest文件来标明那些文件是需要被存储，对于manifest文件，文件的
+mime-type必须是text/cache-manifest类型。
+（2）cache manifest下直接写需要缓存的文件，这里指明文件被缓存到浏览器本地；在network下指明
+的文件，强制必须通过网络资源获取的；在failback下指明是一种失败的回调方案，比如无法访问，就
+发出404.htm请求。
 ```
 
 #### 12. 请描述一下 cookies，sessionStorage 和 localStorage 的区别？
 
 ```
-cookie 是网站为了标识用户身份而存储在用户本地终端（Client Side）上的数据（通常经过加密）。
-cookie 数据始终在同源的 http 请求中携带（即使不需要），即会在浏览器和服务器间来回传递。
+共同点：都是保存在浏览器端，且是同源的。
+区别：
+	1. cookie 数据始终在同源的 http 请求中携带（即使不需要），即会在浏览器和服务器间来回传递。
 sessionStorage 和 localStorage 不会自动把数据发送给服务器，仅在本地保存（浏览器端）。
-
-存储大小：
-	cookie 数据大小不能超过 4K.
-	sessionStorage 和 localStorage 也有存储大小的限制，但是比 cookie 大得多，可以达到 5M 或者更大
+	cookie 是网站为了标识用户身份而存储在用户本地终端（Client Side）上的数据（通常经过加密）。
+	
+	2. 存储大小：
+        cookie 数据大小不能超过 4K.
+        sessionStorage 和 localStorage 也有存储大小的限制，但是比 cookie 大得多，可以达到 5M 或者更大
 有效时间：
+
+	3. 数据有效期
 	localStorge 	存储持久数据，在本地中存储，浏览器关闭后数据不会丢失除非主动删除数据；
 	sessionStorge 	在内存中存储，是一种会话技术，数据在当前浏览器窗口关闭后自动删除；
 	cookie 		    设置的 cookie 过期时间之前一直有效，即使窗口或浏览器关闭，过期自动销毁；
+	
+	4. 作用域不同。cookie在所有的同源窗口都是共享；sessionstorage不在不同的浏览器共享，即使
+同一页面，localstorage在所有同源窗口都是共享的。
+
 路径：Cookie 有路径限制，Storage 只存储在域名下
 API：Cookie 没有特定的 API，Storage 有对应的 API
 sessionStorage 和 localStorage 操作方法：setItem、getItem 以及 removeItem。
@@ -162,6 +162,10 @@ session：存储于服务器端的数据。session 存储特定用户会话所�
 
 ```
 label 标签来定义表单控制间的关系，当用户选择该标签时，浏览器会自动将焦点转到和标签关联的表单控件上。
+label 中有两个属性是非常有用的,一个是for、另外一个就是 accesskey 了。
+for：表示label标签要绑定的HTML元素，你点击这个标签的时候，所绑定的元素将获取焦点。
+accesskey：表示访问label标签所绑定的元素的热键，当您按下热键，所绑定的元素将获取焦点。
+
     <label for="Name">Number:</label>
     <input type=“text“name="Name" id="Name"/>
     
@@ -171,7 +175,15 @@ label 标签来定义表单控制间的关系，当用户选择该标签时，�
 #### 16. HTML5的form如何关闭自动完成功能？
 
 ```
-给不需要提示的 form 或者某个 input 设置为 autocomplete=off;
+	HTML的输入框可以拥有自动完成的功能，当你往输入框输入内容的时候，浏览器会从你以前的同名
+输入框的历史记录中查找出类似的内容并列在输入框下面，这样就不用全部输入进去了，直接选择列表
+中的项目就可以了。
+	但有时候我们希望关闭输入框的自动完成功能，例如当用户输入内容的时候，我们希望使用AJAX技术从
+数据库搜索并列举而不是在用户的历史记录中搜索。
+
+方法：1、在IE的internet选项菜单中里的内容--自动完成里面设置
+	 2、设置form的autocomplete为on或者off来来开启输入框的自动完成功能。
+	 3、设置输入框的autocomplete为on或者off来开启或者关闭输入框自动完成的功能。
 ```
 
 #### 17. 如何实现浏览器内多个标签页之间的通信? (阿里)
