@@ -1636,3 +1636,508 @@ nums.sort(function(a, b) {
 当然还有一个需要注意的情况，就是比较函数不传的时候，是如何进行排序的？
 
 > 答案是将数字转换为字符串，然后根据字母 `unicode`值进行升序排序，也就是根据字符串的比较规则进行升序排序。
+
+## 6. 能不能实现数组 map 方法？
+
+依照 [ecma262 草案](https://tc39.es/ecma262/#sec-array.prototype.map)，实现的map的规范如下:
+
+![img](assets/16e311d99e860405)
+
+下面根据草案的规定一步步来模拟实现map函数:
+
+```js
+Array.prototype.map = function(callbackFn, thisArg){
+    // 处理数组类型异常
+    if(this === null || this === undefined){
+        throw new TypeError("Cannot read property 'map' of null or undefined");
+    }
+    
+    // 处理回调类型异常
+    if(Object.prototype.toString.call(callbackFn) != "[object Function]"){
+        throw new TypeError(callbackFn + 'is not a function');
+    }
+    // 草案中提到要先转换为对象
+    let O = Object(this);
+    let T = thisArg;
+    
+    // 右移 0 位
+    let len = O.length >>> 0;
+   let A = new Array(len);
+    for(let k = 0; k < len; k++){
+        // in 表示在原型链查找
+        // 如果使用 hasOwnProperty 是有问题的，它只能找到私有属性
+        if(k in O){
+            let kValue = O[k];
+            // 依次传入 this，当前项，当前索引，整个数组
+            let mappedValue = callbackFn.call(T, kValue, k, O);
+            A[k] = mappedValue;
+        }
+    }
+    return A;
+}
+```
+
+这里解释一下, length >>> 0, 字面意思是指"右移 0 位"，但实际上是把前面的空位用0填充，这里的作用是保证 len 为数字且为整数。
+
+举几个特例：
+
+```js
+null >>> 0  //0
+
+undefined >>> 0  //0
+
+void(0) >>> 0  //0
+
+function a (){};  a >>> 0  //0
+
+[] >>> 0  //0
+
+var a = {}; a >>> 0  //0
+
+123123 >>> 0  //123123
+
+45.2 >>> 0  //45
+
+0 >>> 0  //0
+
+-0 >>> 0  //0
+
+-1 >>> 0  //4294967295
+
+-1212 >>> 0  //4294966084
+复制代码
+```
+
+总体实现起来并没那么难，需要注意的就是使用 in 来进行原型链查找。同时，如果没有找到就不处理，能有效处理稀疏数组的情况。
+
+## 7. 能不能实现数组 reduce 方法?
+
+依照 [ecma262 草案](https://tc39.es/ecma262/#sec-array.prototype.reduce)，实现的reduce的规范如下:
+
+![img](assets/16e311ed2bfa8fad)
+
+其中有几个核心要点：
+
+1. 初始值不传怎么处理。
+2. 回调函数的参数有哪些，返回值如何处理。
+
+```js
+Array.prototype.reduce = function(callbackFn, initialValue){
+    // 异常处理，和 map 一样
+    // 处理数组类型异常
+    if (this === null || this === undefined) {
+    throw new TypeError("Cannot read property 'reduce' of null or undefined");
+    }
+    // 处理回调类型异常
+    if (Object.prototype.toString.call(callbackfn) != "[object Function]") {
+    throw new TypeError(callbackfn + ' is not a function')
+    }
+    let O = Object(this);
+    let len = O.length >>> 0;
+    let k = 0;
+    let accumulator = initialValue;
+    // 若初始值不传，取第一个存在的元素为初始值
+    if (accumulator === undefined) {
+        for(; k < len ; k++) {
+          // 查找原型链
+          if (k in O) {
+            accumulator = O[k];
+            k++;
+            break;
+          }
+        }
+    }
+    // 表示数组全为空
+    if(k === len && accumulator === undefined) 
+        throw new Error('Each element of the array is empty');
+    for(;k < len; k++) {
+        if (k in O) {
+          // 注意，核心！
+          accumulator = callbackfn.call(undefined, accumulator, O[k], k, O);
+        }
+    }
+    return accumulator;
+}
+
+```
+
+## 8. 能不能实现数组 push、pop 方法？
+
+参照 ecma262 草案的规定，关于 push 和 pop 的规范如下图所示:
+
+![img](assets/16e311f4fa483cc2)
+
+![img](assets/16e311fa338c2ecb)
+
+首先来实现一下 push 方法:
+
+```js
+Array.prototype.push = function(...items) {
+    let O = Object(this);
+    let len = this.length >>> 0;
+    let argCount = items.length >>> 0;
+    // 2 ** 53 - 1 为JS能表示的最大正整数
+    if (len + argCount > 2 ** 53 - 1) {
+        throw new TypeError("The number of array is over the max value restricted!")
+    }
+    for(let i = 0; i < argCount; i++) {
+        O[len + i] = items[i];
+    }
+    let newLength = len + argCount;
+    O.length = newLength;
+    return newLength;
+}
+```
+
+然后来实现 pop 方法:
+
+```js
+    Array.prototype.pop = function() {
+    let O = Object(this);
+    let len = this.length >>> 0;
+    if (len === 0) {
+        O.length = 0;
+        return undefined;
+    }
+    len --;
+    let value = O[len];
+    delete O[len];
+    O.length = len;
+    return value;
+}
+```
+
+## 9. 能不能实现数组 filter 方法？
+
+![img](assets/16e312629684aafb)
+
+```js
+Array.prototype.filter = function(callbackfn, thisArg){
+    // 处理数组类型异常
+    if (this === null || this === undefined) {
+        throw new TypeError("Cannot read property 'filter' of null or undefined");
+    }
+    // 处理回调类型异常
+    if (Object.prototype.toString.call(callbackfn) != "[object Function]") {
+        throw new TypeError(callbackfn + ' is not a function')
+    }
+    let O = Object(this);
+    let len = O.length >>> 0;
+    let resLen = 0;
+    let res = [];
+    for(let i = 0; i < len; i++) {
+    if (i in O) {
+        let element = O[i];
+        if (callbackfn.call(thisArg, O[i], i, O)) {
+            res[resLen++] = element;
+        } 
+    }
+  }
+  return res;
+}
+```
+
+## 10. 能不能实现数组 splice 方法？
+
+splice 可以说是最受欢迎的数组方法之一，api 灵活，使用方便。现在来梳理一下用法：
+
+1. `splice(position, count)` 表示从 `position` 索引的位置开始，删除 `count` 个元素。
+2. `splice(position, 0, ele1, ele2, ...)` 表示从 `position` 索引的元素后面插入一系列的元素。
+3. `splice(position, count, ele1, ele2, ...)` 表示 从`position` 索引的位置开始，删除 `count` 个元素，然后再插入一系列的元素。
+4. 返回值为 `被删除元素` 组成的 `数组`。 
+
+接下来我们实现这个方法。
+
+参照ecma262草案的规定，详情请[点击](https://tc39.es/ecma262/#sec-array.prototype.splice)。
+
+首先我们梳理一下实现的思路。
+
+![img](assets/16e3121dad3976ea)
+
+### 初步实现
+
+```js
+Array.prototype.splice = function(startIndex, deleteCount, ...addElements){
+    let argumentsLen = argumens.length;
+    let array = Object(this);
+    let len = array.length;
+    let deleteArr = new Array(deleteCount);
+    
+    // 拷贝删除的元素
+    sliceDeleteElements(array, startIndex, deleteCount, deleteArr);
+    // 移动删除元素后面的元素
+    movePostElements(array, startIndex, len, deleteCount, addElements);
+    // 插入新元素
+    for(let i = 0; i < addELements.length; i++){
+        array[startIndex + i] = addElements[i];
+    }
+    array.length = len - deleteCount + addElements.length;
+    return deleteArr;
+}
+```
+
+先拷贝删除的元素，如下所示：
+
+```js
+const sliceDeleteElements = (array, startIndex, deleteCount, deleteArr) => {
+    for(let i = 0; i < deleteCount; i++){
+        let index = startIndex + i;
+        if(index in array){
+            let current = array[index];
+            deleteArr[i] = current;
+        }
+    }
+};
+```
+
+然后对删除元素后面的元素进行挪动, 挪动分为三种情况:
+
+1. 添加的元素和删除的元素个数相等
+2. 添加的元素个数小于删除的元素
+3. 添加的元素个数大于删除的元素
+
+当两者相等时，
+
+```js
+const movePostElements = (array, startIndex, len, deleteCount, addElements) => {
+  if (deleteCount === addElements.length) return;
+}
+```
+
+当添加的元素个数小于删除的元素时, 如图所示:
+
+![img](assets/16e31220582da903)
+
+```js
+const movePostElements = (array, startIndex, len, deleteCount, addElements) => {
+    // 如果添加的元素和删除的元素个数不相等，则移动后面的元素
+    if(deleteCount > addElements.length) {
+        // 删除的元素比新增的元素多，那么后面的元素整体向前挪动
+        // 一共需要挪动 len - startIndex - deleteCount 个元素
+        for(let i = startIndex + deleteCount; i < len; i++){
+            let fromIndex = i;
+            // 将要挪动的目标位置
+            let toIndex = i - (deleteCount - addElements.length);
+            if(fromIndex in array){
+                array[toIndex] = array[fromIndex];
+            }else{
+                delete array[toIndex];
+            }
+        }
+        // 注意！这里我们把元素向前挪，相当于数组长度减小了，需要删除冗余元素
+        // 目前长度为 len + addElements - deleteCount
+        for (let i = len - 1; i >= len + addElements.length - deleteCount; i --) {
+            delete array[i];
+        }
+	}
+};
+```
+
+当添加的元素个数大于删除的元素时，如图所示：
+
+![img](assets/16e3122363235833)
+
+```js
+const movePostElements = (array, startIndex, len, deleteCount, addElements) =>{
+    // ...
+    if(deleteCount < addElements.length) {
+        // 删除的元素比新增的元素少，那么后面的元素整体向后挪动
+        // 思考一下：这里为什么要从后往前遍历？从前往后会产生什么问题？ 会覆盖后边的元素
+        for(let i = len - 1; i >= startIndex + deleteCount; i--){
+            let fromIndex = i;
+            // 将要挪动到的目标位置
+            let toIndex = i + (addElements.length - deleteCount);
+            if(fromIndex in array){
+                array[toIndex] = array[fromIndex];
+            }else{
+                delete array[toIndex];
+            }
+        }
+    }
+};
+```
+
+### 优化一: 参数的边界情况
+
+当用户传来非法的 startIndex 和 deleteCount 或者负索引的时候，需要我们做出特殊的处理。
+
+```js
+const computeStartIndex = (startIndex, len) => {
+    // 处理索引负数的情况
+    if(startIndex < 0){
+        return startIndex + len > 0 ? startIndex + len : 0; 
+    }
+    return startIndex >= len ? len: startIndex;
+}
+
+const computeDeleteCount = (startIndex, len, deleteCount, argumentsLen) => {
+    // 删除数目没有传，默认删除 startIndex 及后面所有的
+    if(argumentsLen === 1) return len - startIndex;
+    // 删除数目过小
+    if(deleteCount < 0) return 0;
+    // 删除数目过大
+    if(deleteCount > len - startIndex) return len - startIndex;
+    return deleteCount;
+}
+
+Array.prototype.splice = function(startIndex, deleteCount, ...addElements){
+    // ...
+    let deleteArr = new Array(deleteCount);
+    
+    // 下面参数的清洗工作
+    startIndex = computeStartIndex(startIndex, len);
+    deleteCount = computeDeleteCount(startIndex, deleteCount, argumentsLen);
+    
+    // 拷贝删除的元素
+    sliceDeleteElements(array, startIndex,deleteCount, deleteArr);
+    // ...
+}
+```
+
+## 优化二：数组为密封对象或冻结对象
+
+什么是密封对象？
+
+> 密封对象是不可扩展的对象，而且已有成员的 `[[Configurable]]` 属性设置为 false，这意味着不能添加、删除方法和属性，但是属性值是可以修改的。
+
+什么是冻结对象？
+
+> 冻结对象是最严格的防篡改级别，除了包含密封对象的限制外，还不能修改属性值。
+
+接下来，我们来把着两种情况一一排除。
+
+```js
+// 判断 sealed 对象和 frozen 对象, 即 密封对象 和 冻结对象
+if (Object.isSealed(array) && deleteCount !== addElements.length) {
+  throw new TypeError('the object is a sealed object!')
+} else if(Object.isFrozen(array) && (deleteCount > 0 || addElements.length > 0)) {
+  throw new TypeError('the object is a frozen object!')
+}
+```
+
+好了，现在就写了一个比较完整的splice，如下:
+
+```js
+const sliceDeleteElements = (array, startIndex, deleteCount, deleteArr) => {
+  for (let i = 0; i < deleteCount; i++) {
+    let index = startIndex + i;
+    if (index in array) {
+      let current = array[index];
+      deleteArr[i] = current;
+    }
+  }
+};
+
+const movePostElements = (array, startIndex, len, deleteCount, addElements) => {
+  // 如果添加的元素和删除的元素个数相等，相当于元素的替换，数组长度不变，被删除元素后面的元素不需要挪动
+  if (deleteCount === addElements.length) return;
+  // 如果添加的元素和删除的元素个数不相等，则移动后面的元素
+  else if(deleteCount > addElements.length) {
+    // 删除的元素比新增的元素多，那么后面的元素整体向前挪动
+    // 一共需要挪动 len - startIndex - deleteCount 个元素
+    for (let i = startIndex + deleteCount; i < len; i++) {
+      let fromIndex = i;
+      // 将要挪动到的目标位置
+      let toIndex = i - (deleteCount - addElements.length);
+      if (fromIndex in array) {
+        array[toIndex] = array[fromIndex];
+      } else {
+        delete array[toIndex];
+      }
+    }
+    // 注意注意！这里我们把后面的元素向前挪，相当于数组长度减小了，需要删除冗余元素
+    // 目前长度为 len + addElements - deleteCount
+    for (let i = len - 1; i >= len + addElements.length - deleteCount; i --) {
+      delete array[i];
+    }
+  } else if(deleteCount < addElements.length) {
+    // 删除的元素比新增的元素少，那么后面的元素整体向后挪动
+    // 思考一下: 这里为什么要从后往前遍历？从前往后会产生什么问题？
+    for (let i = len - 1; i >= startIndex + deleteCount; i--) {
+      let fromIndex = i;
+      // 将要挪动到的目标位置
+      let toIndex = i + (addElements.length - deleteCount);
+      if (fromIndex in array) {
+        array[toIndex] = array[fromIndex];
+      } else {
+        delete array[toIndex];
+      }
+    }
+  }
+};
+
+const computeStartIndex = (startIndex, len) => {
+  // 处理索引负数的情况
+  if (startIndex < 0) {
+    return startIndex + len > 0 ? startIndex + len: 0;
+  } 
+  return startIndex >= len ? len: startIndex;
+}
+
+const computeDeleteCount = (startIndex, len, deleteCount, argumentsLen) => {
+  // 删除数目没有传，默认删除startIndex及后面所有的
+  if (argumentsLen === 1) 
+    return len - startIndex;
+  // 删除数目过小
+  if (deleteCount < 0) 
+    return 0;
+  // 删除数目过大
+  if (deleteCount > len - startIndex) 
+    return len - startIndex;
+  return deleteCount;
+}
+
+Array.prototype.splice = function(startIndex, deleteCount, ...addElements)  {
+  let argumentsLen = arguments.length;
+  let array = Object(this);
+  let len = array.length >>> 0;
+  let deleteArr = new Array(deleteCount);
+
+  startIndex = computeStartIndex(startIndex, len);
+  deleteCount = computeDeleteCount(startIndex, len, deleteCount, argumentsLen);
+
+  // 判断 sealed 对象和 frozen 对象, 即 密封对象 和 冻结对象
+  if (Object.isSealed(array) && deleteCount !== addElements.length) {
+    throw new TypeError('the object is a sealed object!')
+  } else if(Object.isFrozen(array) && (deleteCount > 0 || addElements.length > 0)) {
+    throw new TypeError('the object is a frozen object!')
+  }
+   
+  // 拷贝删除的元素
+  sliceDeleteElements(array, startIndex, deleteCount, deleteArr);
+  // 移动删除元素后面的元素
+  movePostElements(array, startIndex, len, deleteCount, addElements);
+
+  // 插入新元素
+  for (let i = 0; i < addElements.length; i++) {
+    array[startIndex + i] = addElements[i];
+  }
+
+  array.length = len - deleteCount + addElements.length;
+
+  return deleteArr;
+}
+```
+
+## 11. 能不能实现数组 sort 方法？
+
+`sort` 方法在 `V8` 内部相对与其他方法而且是一个比较高深的算法，对于很多边界情况做了反复的优化。根据源码的思路，实现一个跟引擎性能一样的排序算法。
+
+### V8 引擎的思路分析
+
+首先大概梳理一下源码中排序的思路：
+
+设要排序的元素个数是 n：
+
+- 当 n <= 10 时，采用 `插入排序`
+- 当 n > 10 时，采用 `三路快速排序`
+  - 10 < n <= 1000，采用中位数作为哨兵元素。
+  - n > 1000，每隔 200~215 个元素挑出一个元素，放到一个新数组，然后对它排序，找到中间位置的数，以此作为中位数。
+
+在动手之前，我觉得我们有必要**为什么**这么做。
+
+第一、为什么元素个数少的时候要采用插入排序？
+
+虽然 `插入排序` 理论上说是 `O(n^2)` 的算法，`快速排序` 是一个 `O(nlogn)` 级别的算法。但是别忘了，这只是理论上的估算，在实际情况中两者的算法复杂度前面都会有一个系数的，当 `n` 足够小的时候，快速排序 `nlogn` 的优势会越来越小，倘若插入排序 `O(n^2)` 前面的系数足够小，那么就会超过很多快排。而事实上正是如此，`插入排序` 经过优化以后对小数据集的排序会有非常优越的性能，很多时候甚至会超过快排。
+
+因此，对于很小的数据量，应用 `插入排序`是一个非常不错的选择。
