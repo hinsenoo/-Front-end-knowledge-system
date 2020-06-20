@@ -1,4 +1,4 @@
-​		在 [this 的显式绑定规则](https://juejin.im/post/5e80f60ef265da47c43204da#heading-4)中，通过使用函数的 (ES3) **call(...)、apply(...)** 方法在调用时将指定对象绑定到 `this` 。而为了解决绑定丢失的问题，使用硬绑定模式引出了 **bind(...)** 方法（ES5 提供）。也有使用 `new` 操作符的 `new` 绑定
+		在 [this 的显式绑定规则](https://juejin.im/post/5e80f60ef265da47c43204da#heading-4)中，通过使用函数的 (ES3) **call(...)、apply(...)** 方法在调用时将指定对象绑定到 `this` 。而为了解决绑定丢失的问题，使用硬绑定模式引出了 **bind(...)** 方法（ES5 提供）。也有使用 `new` 操作符的 `new` 绑定
 
 下面来分别探讨这四个方法的原理以及实现 👇：
 
@@ -478,10 +478,10 @@ Function.prototype.bind2 = function(context) {
     var args = Array.prototype.slice.call(arguments, 1);
     
     return function() {
-        // 获取 bind 返回的函数传入的参数(返回的函数的 arguments)
+        // 这个时候的arguments是指bind返回的函数传入的参数
         var bindArgs = Array.prototype.slice.call(arguments);
         // 绑定 this，并且拼接参数数组传入
-        return self.apply(context, args.concat(bindArgs));
+        self.apply(context, args.concat(bindArgs));
     }
 }
 ```
@@ -539,7 +539,7 @@ Function.prototype.bind2 = function(context) {
         
         // 1.
         return self.apply(
-        	this instanceof fBound ? this : context,
+        	this instanceof self ? this : context,
             args.concat(bindArgs)
         );
     }
@@ -549,7 +549,7 @@ Function.prototype.bind2 = function(context) {
 }
 ```
 
-- 1.1 当 `fBound` 作为构造函数时，`this` 会指向（`fBound` 的）实例，此时  `this instanceof fBound` 结果为 `true`，可以让实例获得来自绑定函数的值，即上个例中实例会具有 `habit` 属性。
+- 1.1 当 `fBound` 作为构造函数时，`this` 会指向（`fBound` 的）实例，`self`指向绑定函数，此时  `this instanceof self` 结果为 `true`，可以让实例获得来自绑定函数的值，即上个例中实例会具有 `habit` 属性。
 - 1.2 当作为普通函数时， `this` 指向 `window`，此时结果为 `false`，将绑定函数的 `this` 指向 `context`
 
 - 2 . 修改返回函数 `fBound` 的 `prototype` 为绑定函数的 `prototype`，实例就可以继承绑定函数中的原型中的值，即上例中 `obj` 可以获取到 `bar` 原型上的 `friend`。

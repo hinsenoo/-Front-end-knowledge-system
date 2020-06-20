@@ -2141,3 +2141,700 @@ Array.prototype.splice = function(startIndex, deleteCount, ...addElements)  {
 虽然 `插入排序` 理论上说是 `O(n^2)` 的算法，`快速排序` 是一个 `O(nlogn)` 级别的算法。但是别忘了，这只是理论上的估算，在实际情况中两者的算法复杂度前面都会有一个系数的，当 `n` 足够小的时候，快速排序 `nlogn` 的优势会越来越小，倘若插入排序 `O(n^2)` 前面的系数足够小，那么就会超过很多快排。而事实上正是如此，`插入排序` 经过优化以后对小数据集的排序会有非常优越的性能，很多时候甚至会超过快排。
 
 因此，对于很小的数据量，应用 `插入排序`是一个非常不错的选择。
+
+第二、为什么要花这么大的力气选择哨兵元素？
+
+因为`快速排序`的性能瓶颈在于递归的深度，最坏的情况是每次的哨兵都是最小元素或者最大元素，那么进行partition(一边是小于哨兵的元素，另一边是大于哨兵的元素)时，就会有一边是空的，那么这么排下去，递归的层数就达到了n, 而每一层的复杂度是O(n)，因此快排这时候会退化成O(n^2)级别。
+
+这种情况是要尽力避免的！如果来避免？
+
+就是让哨兵元素进可能地处于数组的中间位置，让最大或者最小的情况尽可能少。这时候，你就能理解 V8 里面所做的种种优化了。
+
+接下来，我们来一步步实现的这样的官方排序算法。
+
+### 插入排序及优化
+
+最初的插入排序可能是这样写的:
+
+```js
+const insertSort = (arr, start = 0, end) => {
+  end = end || arr.length;
+  for(let i = start; i < end; i++) {
+    let j;
+    for(j = i; j > start && arr[j - 1] > arr[j]; j --) {
+      let temp = arr[j];
+      arr[j] = arr[j - 1];
+      arr[j - 1] = temp;
+    }
+  }
+  return;
+}
+```
+
+看似可以正确的完成排序，但实际上交换元素会有相当大的性能消耗，我们完全可以用变量覆盖的方式来完成，如图所示:
+
+![img](assets/16e3124af5479387)
+
+优化后代码如下:
+
+```js
+function insertionSort(arr){
+    var len = arr.length;
+    var preIndex, current;
+    for(var i = 1; i < len; i++){
+        preIndex = i - 1;
+        current = arr[i];
+        // 如果前一个元素大于新元素，则将该元素移入下一位置
+        while(preIndex >= 0 && arr[preIndex] > current){
+            arr[preIndex + 1] = arr[preIndex];
+            preIndex--;
+        }
+        // 将新元素插入到该位置后
+        arr[preIndex + 1] = current;
+    }
+    return arr;
+}
+```
+
+接下来正式进入到 sort 方法。
+
+### 寻找哨兵元素
+
+sort 的骨架大致如下:
+
+```js
+Array.prototype.sort = (comparefn) => {
+  let array = Object(this);
+  let length = array.length >>> 0;
+  return InnerArraySort(array, length, comparefn);
+}
+const InnerArraySort = (array, length, comparefn) => {
+      // 比较函数未传入
+      if (Object.prototype.toString.call(callbackfn) !== "[object Function]") {
+        comparefn = function (x, y) {
+          if (x === y) return 0;
+          x = x.toString();
+          y = y.toString();
+          if (x == y) return 0;
+          else return x < y ? -1 : 1;
+        };
+      }
+      // 插入排序
+      const insertSort = () => {
+        //...
+      }
+      const getThirdIndex = (a, from, to) => {
+        // 元素个数大于1000时寻找哨兵元素
+      }
+      
+      const quickSort = (a, from, to) => {
+        //哨兵位置
+        let thirdIndex = 0;
+        while(true) {
+          if(to - from <= 10) {
+            insertSort(a, from, to);
+            return;
+          }
+          if(to - from > 1000) {
+            thirdIndex = getThirdIndex(a, from , to);
+          }else {
+            // 小于1000 直接取中点
+            thirdIndex = from + ((to - from) >> 2);
+          }
+        }
+        //下面开始快排
+      }
+
+}
+```
+
+我们先来把求取哨兵位置的代码实现一下:
+
+```js
+const getThirdIndex = (a, from, to) => {
+  let tmpArr = [];
+  // 递增量，200~215 之间，因为任何正数和15做与操作，不会超过15，当然是大于0的
+  let increment = 200 + ((to - from) & 15);
+  let j = 0;
+  from += 1;
+  to -= 1;
+  for (let i = from; i < to; i += increment) {
+    tmpArr[j] = [i, a[i]];
+    j++;
+  }
+  // 把临时数组排序，取中间的值，确保哨兵的值接近平均位置
+  tmpArr.sort(function(a, b) {
+    return comparefn(a[1], b[1]);
+  });
+  let thirdIndex = tmpArr[tmpArr.length >> 1][0];
+  return thirdIndex;
+}
+```
+
+### 完成快排
+
+接下来我们来完成快排的具体代码：
+
+```js
+const _sort = (a, b, c) => {
+  let arr = [a, b, c];
+  insertSort(arr, 0, 3);
+  return arr;
+}
+
+const quickSort = (a, from, to) => {
+  //...
+  // 上面我们拿到了thirdIndex
+  // 现在我们拥有三个元素，from, thirdIndex, to
+  // 为了再次确保 thirdIndex 不是最值，把这三个值排序
+  [a[from], a[thirdIndex], a[to - 1]] = _sort(a[from], a[thirdIndex], a[to - 1]);
+  // 现在正式把 thirdIndex 作为哨兵
+  let pivot = a[thirdIndex];
+  // 正式进入快排
+  let lowEnd = from + 1;
+  let highStart = to - 1;
+  // 现在正式把 thirdIndex 作为哨兵, 并且lowEnd和thirdIndex交换
+  let pivot = a[thirdIndex];
+  a[thirdIndex] = a[lowEnd];
+  a[lowEnd] = pivot;
+  
+  // [lowEnd, i)的元素是和pivot相等的
+  // [i, highStart) 的元素是需要处理的
+  for(let i = lowEnd + 1; i < highStart; i++) {
+    let element = a[i];
+    let order = comparefn(element, pivot);
+    if (order < 0) {
+      a[i] = a[lowEnd];
+      a[lowEnd] = element;
+      lowEnd++;
+    } else if(order > 0) {
+      do{
+        highStart--;
+        if(highStart === i) break;
+        order = comparefn(a[highStart], pivot);
+      }while(order > 0)
+      // 现在 a[highStart] <= pivot
+      // a[i] > pivot
+      // 两者交换
+      a[i] = a[highStart];
+      a[highStart] = element;
+      if(order < 0) {
+        // a[i] 和 a[lowEnd] 交换
+        element = a[i];
+        a[i] = a[lowEnd];
+        a[lowEnd] = element;
+        lowEnd++;
+      }
+    }
+  }
+  // 永远切分大区间
+  if (lowEnd - from > to - highStart) {
+    // 继续切分lowEnd ~ from 这个区间
+    to = lowEnd;
+    // 单独处理小区间
+    quickSort(a, highStart, to);
+  } else if(lowEnd - from <= to - highStart) {
+    from = highStart;
+    quickSort(a, from, lowEnd);
+  }
+}
+
+```
+
+### 测试结果
+
+测试结果如下:
+
+一万条数据:
+
+
+
+![img](https://user-gold-cdn.xitu.io/2019/11/3/16e3124fa130ab19?imageView2/0/w/1280/h/960/format/webp/ignore-error/1)
+
+
+
+十万条数据:
+
+
+
+![img](https://user-gold-cdn.xitu.io/2019/11/3/16e312533c86a644?imageView2/0/w/1280/h/960/format/webp/ignore-error/1)
+
+
+
+一百万条数据:
+
+
+
+![img](https://user-gold-cdn.xitu.io/2019/11/3/16e3125824bfe0f8?imageView2/0/w/1280/h/960/format/webp/ignore-error/1)
+
+
+
+一千万条数据:
+
+
+
+![img](https://user-gold-cdn.xitu.io/2019/11/3/16e3125b7ba2ad38?imageView2/0/w/1280/h/960/format/webp/ignore-error/1)
+
+
+
+结果仅供大家参考，因为不同的node版本对于部分细节的实现可能不一样，我现在的版本是v10.15。
+
+从结果可以看到，目前版本的 node 对于有序程度较高的数据是处理的不够好的，而我们刚刚实现的排序通过反复确定哨兵的位置就能 有效的规避快排在这一场景下的劣势。
+
+最后给大家完整版的sort代码:
+
+```
+const sort = (arr, comparefn) => {
+  let array = Object(arr);
+  let length = array.length >>> 0;
+  return InnerArraySort(array, length, comparefn);
+}
+
+const InnerArraySort = (array, length, comparefn) => {
+  // 比较函数未传入
+  if (Object.prototype.toString.call(comparefn) !== "[object Function]") {
+    comparefn = function (x, y) {
+      if (x === y) return 0;
+      x = x.toString();
+      y = y.toString();
+      if (x == y) return 0;
+      else return x < y ? -1 : 1;
+    };
+  }
+  const insertSort = (arr, start = 0, end) => {
+    end = end || arr.length;
+    for (let i = start; i < end; i++) {
+      let e = arr[i];
+      let j;
+      for (j = i; j > start && comparefn(arr[j - 1], e) > 0; j--)
+        arr[j] = arr[j - 1];
+      arr[j] = e;
+    }
+    return;
+  }
+  const getThirdIndex = (a, from, to) => {
+    let tmpArr = [];
+    // 递增量，200~215 之间，因为任何正数和15做与操作，不会超过15，当然是大于0的
+    let increment = 200 + ((to - from) & 15);
+    let j = 0;
+    from += 1;
+    to -= 1;
+    for (let i = from; i < to; i += increment) {
+      tmpArr[j] = [i, a[i]];
+      j++;
+    }
+    // 把临时数组排序，取中间的值，确保哨兵的值接近平均位置
+    tmpArr.sort(function (a, b) {
+      return comparefn(a[1], b[1]);
+    });
+    let thirdIndex = tmpArr[tmpArr.length >> 1][0];
+    return thirdIndex;
+  };
+
+  const _sort = (a, b, c) => {
+    let arr = [];
+    arr.push(a, b, c);
+    insertSort(arr, 0, 3);
+    return arr;
+  }
+
+  const quickSort = (a, from, to) => {
+    //哨兵位置
+    let thirdIndex = 0;
+    while (true) {
+      if (to - from <= 10) {
+        insertSort(a, from, to);
+        return;
+      }
+      if (to - from > 1000) {
+        thirdIndex = getThirdIndex(a, from, to);
+      } else {
+        // 小于1000 直接取中点
+        thirdIndex = from + ((to - from) >> 2);
+      }
+      let tmpArr = _sort(a[from], a[thirdIndex], a[to - 1]);
+      a[from] = tmpArr[0]; a[thirdIndex] = tmpArr[1]; a[to - 1] = tmpArr[2];
+      // 现在正式把 thirdIndex 作为哨兵
+      let pivot = a[thirdIndex];
+      [a[from], a[thirdIndex]] = [a[thirdIndex], a[from]];
+      // 正式进入快排
+      let lowEnd = from + 1;
+      let highStart = to - 1;
+      a[thirdIndex] = a[lowEnd];
+      a[lowEnd] = pivot;
+      // [lowEnd, i)的元素是和pivot相等的
+      // [i, highStart) 的元素是需要处理的
+      for (let i = lowEnd + 1; i < highStart; i++) {
+        let element = a[i];
+        let order = comparefn(element, pivot);
+        if (order < 0) {
+          a[i] = a[lowEnd];
+          a[lowEnd] = element;
+          lowEnd++;
+        } else if (order > 0) {
+          do{
+            highStart--;
+            if (highStart === i) break;
+            order = comparefn(a[highStart], pivot);
+          }while (order > 0) ;
+          // 现在 a[highStart] <= pivot
+          // a[i] > pivot
+          // 两者交换
+          a[i] = a[highStart];
+          a[highStart] = element;
+          if (order < 0) {
+            // a[i] 和 a[lowEnd] 交换
+            element = a[i];
+            a[i] = a[lowEnd];
+            a[lowEnd] = element;
+            lowEnd++;
+          }
+        }
+      }
+      // 永远切分大区间
+      if (lowEnd - from > to - highStart) {
+        // 单独处理小区间
+        quickSort(a, highStart, to);
+        // 继续切分lowEnd ~ from 这个区间
+        to = lowEnd;
+      } else if (lowEnd - from <= to - highStart) {
+        quickSort(a, from, lowEnd);
+        from = highStart;
+      }
+    }
+  }
+  quickSort(array, 0, length);
+}
+复制代码
+```
+
+参考链接:
+
+[V8 sort源码(点开第997行)](https://github.com/v8/v8/blob/ad82a40509c5b5b4680d4299c8f08d6c6d31af3c/src/js/array.js#997)
+
+[冴羽排序源码专题](https://juejin.im/post/59e80dc6f265da432a7aaf15)
+
+# 六、实现 new、bind、call/apply
+
+## 1. 能不能模拟实现一个 new 的效果？
+
+在 `new` 操作中发生了什么呢？
+
+- 创建一个新的对象，以构造函数的 `prototype` 属性为原型；
+- 使 `this` 指向新建的对象（所以 `new` 操作会改变 `this` 指向）；
+- 将 `this` 和调用参数传给构造函数，并执行；
+- 如果构造函数没有手动返回对象，则返回第一步创建的新对象。如果有，则返回手动 `return` 的对象。
+
+```js
+function _new(){
+    // 1. 创建一个新对象；
+    var obj = {};
+    // 2, 获得构造函数，取出 arguments 的第一个参数(会改变原数组)
+    Constructor = [].shift.call(arguments);
+    // 3. 将 obj 的原型指向构造函数的 prototype
+    obj.__proto__ = Constructor.prototype;
+    // 4. 将构造函数的 this 指向新对象
+    var ret = Constructor.apply(obj, arguments);
+    // 5. 优先返回构造函数返回的对象
+    return typeof ret === 'object' ? ret : obj;
+}
+```
+
+## 2. 能不能模拟实现一个 bind 的效果？
+
+`bind()` 函数是 ES5 提供的，所以在旧版本并不支持。
+
+分析一下 `bind` 函数的特性：
+
+1. 第一个参数可以绑定 `this`
+2. 返回一个函数
+3. 可以传入参数
+4. 函数柯里化
+
+还有一个特点是：
+
+- 一个绑定函数也能使用 `new` 操作符创建对象：这种行为就像把原函数当成构造器，提供的 `this` 值被忽略，同时调用时的参数被提供给模拟函数。
+
+也就是说当 `bind` 返回的函数作为构造函数时，`bind` 指定 的`this` 值会失效，但传入的参数依然失效。
+
+ ```js
+Function.prototype.bind = function(context){
+    // 判断调用的是否为函数
+	if(typeof this !== 'function'){
+        throw new Error("Function.prototype.bind - what is trying to be bound is not callable");
+    }
+    // 保存 this 的值，它代表调用 bind 的函数
+    var self = this;
+    // 获取其他参数，作为绑定函数的参数，柯里化
+    var args = Array.prototype.slice.call(arguments, 1);
+    
+    
+    // 返回的绑定函数
+    var fBound = function(){
+        // 这个时候的arguments是指bind返回的函数传入的参数
+        var bindArgs = Array.prototype.slice.call(arguments);
+        // 绑定 this, 并且拼接参数数组传入
+        self.apply(
+            // 看下面解释
+            this instanceof self ? this : context,
+            args.concat(bindArgs));
+    }
+    
+    // 创建一个空对象，进行中转
+    // 直接将 fbound.prototype = this.prototype 有一个缺点，
+    // 当修改 fBound.prototype 的时候，也会直接修改 this.prototype
+    var fNOP = function() {};
+    fNOP.prototype = this.prototype;	// 空对象的原型指向绑定函数的原型
+    fBound.prototype = new fNOP();		// 空对象的实例赋值给 fBound.prototype
+   // ES5 的话直接：`fBound.prototype = Object.create(this.prototype);` 不过部分旧浏览器并不支持。
+    
+    return fBound;
+    
+}
+ ```
+
+- 当作为构造函数，`this` 指向实例，`self` 指向绑定函数，因为下面一句 `fbound.prototype = this.prototype;`，已经修改了 `fbound.prototype` 为 绑定函数的 `prototype`，此时结果为 true，当结果为 true 的时候，this 指向实例。
+-  当作为普通函数时，`this` 指向 `window`，`self` 指向绑定函数，此时结果为 `false`，当结果为 `false` 的时候，`this` 指向绑定的 `context`。
+
+## 3. 能不能实现一个 call/apply 函数？
+
+### call 实现;
+
+```js
+Function.prototype.call2 = function (context){
+    // 获取当前时间戳作为属性名,避免属性覆盖
+    var fn = '_' + new Date().getTime();
+    // 当指定 this 为 null，视为指向 window
+    var context = context ? Object(context) : window;
+    // 将函数设置为 this 对象的方法
+    context[fn] = this;
+    
+    // 获取函数执行参数 args =>  ["arguments[1]", "arguments[2]",...]
+   	var args = [];
+    // 由于 argumentss 是类数组对象，所以可以使用 for 循环
+    for(var i = 1, len = arguments.length; i < len; i++){
+        args.push('arguments['+ i +']');
+    }
+    // 执行函数,传递参数 并获取函数的返回值
+    var result = eval('context[fn]('+ args +')');
+    
+    // 删除该方法
+    delete context[fn];     
+    // 返回函数的返回值
+    return result
+}
+```
+
+### ES6 版本的 call 简单模拟实现 
+
+- 用 Symbol 来标识属性名，可避免属性重复。
+- 使用扩展运算符 `...` 来展开数组，与 `[]` 配合使用可以把类数组转为数组。
+
+```js
+Function.prototype.myCall = function(context){
+    // ES6 新增的基本数据类型 Symbol——符号
+    var fn = Symbol();
+    var context = context || window;
+  	context[fn] = this;
+    // 使用扩展运算符... 通过 [..arrayLike] 将类数组转换为数组
+    // 使用数组方法 slice 获取从第二个开始的参数并返回一个新的数组
+    var args = [...arguments].slice(1);
+	// 使用扩展运算符展开数组来传递参数
+    var result = context[fn](...args);
+    // 删除 fn
+    delete context[fn];
+    return result;
+}
+```
+
+### apply 实现：
+
+apply 的实现跟 call 很类似，区别就是 apply 是获取一个参数值数组解析成参数传递给函数：
+
+```js
+Function.prototype.apply2 = function(context,arr) {
+    var fn = '_' + new Date().getTime();
+    var context = context ? Object(context) : window;
+    context[fn] = this;
+    
+   	var result;
+    // 判断是否有第二个参数
+    if(!arr){
+        // 若无需传递参数，则直接执行
+        result = context[fn]();
+    }else{
+        var args = [];
+        // 直接使用
+        for(var i = 0, len = arr.length; i < len; i++){
+            args.push('arr['+ i +']');
+        }
+        result = eval('context[fn]('+ args +')');
+    }
+    
+    delete context[fn];     
+    return result;
+}
+```
+
+### ES6 版本的 apply 简单模拟实现:
+
+```js
+Function.prototype.myApply = function (context,arr) {
+    var fn = Symbol();
+    var context = context || window;
+    context[fn] = this;
+
+    var result;
+    // 需要判断是否存在第二个参数
+    if (!arr) {
+    	result = context[fn]();
+    } else {
+        // 如果存在，则展开第二个参数传递给数组
+    	result = context[fn](...arr);
+    }
+    
+    delete context[fn];
+    return result;
+}
+```
+
+# 七、谈谈你对JS中this的理解
+
+## 一、this是什么？
+
+当一个函数被调用时，会创建一个执行上下文记录。这个记录会包含调用栈、函数的调用方式、传入的参数等信息。`this` 就是这个记录的一个属性，会在函数执行的过程中用到。
+
+所以 `this` 是在运行时进行绑定的，而不是在编写时绑定，它的上下文取决于函数调用时的各自条件。`this` 的绑定和函数声明的位置没有任何关系，**只取决于函数的调用方式（调用位置）**。
+
+## 二、绑定规则
+
+### 1. 默认绑定
+
+​	最常用的函数调用类型：**独立函数调用**。可以把这条规则看作是无法应用其他规则时的默认规则。默认规则，`this` 指向**全局对象**。
+
+注：**对于默认绑定来说，如果函数体处于严格模式，`this` 会被绑定到 `undefined`，否则 `this` 会被绑定到全局对象；并不是调用位置是否处于严格模式。**
+
+### 2. 隐式绑定
+
+​		当函数引用有**上下文对象**，或者说被某个对象拥有作为对象的属性，隐式绑定规则会把函数中的 `this` 绑定到这个上下文对象。
+
+#### 对象.方法的形式调用
+
+```js
+function foo(){
+    console.log(this.a);
+}
+var obj = {
+    a: 2,
+    foo: foo
+};
+// 隐式绑定规则 this.a ==> obj.a
+obj.foo(); // 2
+```
+
+要注意对象属性引用链中只有上一层或者说最后一层在调用中隐式绑定规则才会起作用
+
+#### DOM事件绑定
+
+`onclick` 和 `addEventerListener` 中 this 默认指向绑定事件的元素。
+
+IE比较奇异，使用 `attachEvent`，里面的 `this` 默认指向 `window`。
+
+### 3. 显式绑定
+
+通过使用函数的 `call(...)` 或者 `apply(...)` 方法。第一个参数是一个对象，在调用时将这个对象绑定到 `this`。因为直接指定 `this` 的绑定对象，所以称之为**显式绑定**。
+
+#### 硬绑定
+
+**ES5** 提供了内置的方法 `Function.prototype.bind`
+
+JS 许多内置函数提供了一个可选参数，被称之为 **”上下文（context）“**，其作用和 `bind(...)` 一样，确保回调函数使用指定的 `this`，这些函数实际上就是通过 `call(..)` 和 `apply(..)` 实现了显式绑定。
+
+```js
+function foo(el) {
+	console.log( el, this.id );
+}
+
+var obj = {
+    id: "awesome"
+}
+
+// 调用foo(..)时把this绑定到obj
+[1, 2, 3].forEach( foo, obj );
+// 1 awesome 2 awesome 3 awesome
+```
+
+### 补充：call、apply、bind 有什么区别？
+
+1. `call、apply、bind` 都用与改变 `this` 绑定，但 `call、apply` 在改变 `this` 指向的同时还会执行函数，而 `bind` 在改变 `this` 后是返回一个全新的 `boundFunction` 绑定函数  ，这也是为什么上方例子中 `bind` 后还加了一对括号的原因。
+2. `bind` 属于硬绑定，返回的 `boundFunction` 的 `this` 指向无法再次通过 `call、apply、bind` 修改；`call` 与 `apply` 的绑定只适合当前调用，调用完就结束了，再次调用需要重新绑定。
+3. `call` 与 `apply` 的功能完全相同，唯一不同的是 `call` 方法调传递函数调用的形参必须**一一列举出来**，而 `apply` 方法的形参是一个**数组**。在传参的情况下，`call` 的性能要高于 `apply`，因为 `apply` 在执行时还要多一步解析数组。
+
+
+
+### 4. new 绑定
+
+此时构造函数中的this指向实例对象。
+
+### 5. 箭头函数
+
+ES6 新增的一种特殊函数类型：**箭头函数**，箭头函数不使用 `this`  的四种标准规则，而是根据外层（函数或全局）作用域（**词法作用域**）来决定 `this` 。
+
+```js
+function foo() {
+    // 返回一个箭头函数
+    return (a) => {
+        // this继承自foo()
+        console.log( this.a );
+    };
+}
+
+var obj1 = {
+    a: 2
+};
+
+var obj2 = {
+    a: 3
+}
+
+var bar = foo.call( obj1 );
+bar.call( obj2 ); // 2，不是3
+```
+
+
+
+### 6. 绑定例外
+
+#### 6.1 被忽略的 this 
+
+如果把 `null` 或者 `undefined` 作为 `this` 的绑定对象传入 `call`、`apply` 或者`bind` ，这些值在调用时会被忽略，实际应用的是默认规则。
+
+#### 6.2 间接引用
+
+在”间接引用”下，调用这个函数会应用默认绑定规则。间接引用最容易在**赋值**时发生。
+
+```js
+function foo() {
+    console.log( this.a );
+}
+
+var a = 2;
+var o = { a: 3, foo: foo };
+var p = { a: 4};
+
+o.foo(); // 3
+(p.foo = o.foo)(); // 2
+```
+
+赋值表达式 `p.foo = o.foo` 的返回值是目标函数的引用，因此调用位置是 `foo()` 而不是 `p.foo()` 或者 `o.foo()`
+
+
+
+## 三、 绑定优先级
+
+根据优先级来判断函数在某个调用位置应用的是哪条规则，可以按照下面的顺序来进行判断：
+
+1. 由 `new` 调用？ 绑定到新创建的对象。
+2. 由 `call` 或 `apply`（或者 `bind`）调用？ 绑定到指定的对象。``
+3. 由上下文对象调用？ 绑定到那个上下文对象。
+4. 默认：函数体在严格模式下绑定到 undefined，否则绑定到全局对象。
