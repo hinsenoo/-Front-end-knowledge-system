@@ -475,3 +475,708 @@ promise2
 ### 4. nodejs 和 浏览器关于 eventLoop 的主要区别
 
 两者最主要的区别在于浏览器中的微任务是在每个相应的宏任务中执行的，而 nodejs 中的微任务是在 **不同阶段之间** 执行的。
+
+### 5.关于process.nextTick的一点说明
+
+`process.nextTick` 是一个独立于 eventLoop 的任务队列。
+
+在每一个 eventLoop 阶段完成后会去检查这个队列，如果里面有任务，会让这部分任务`优先于微任务`执行。
+
+
+
+# 十、nodejs 中的异步、非阻塞I/O
+
+在听到 nodejs 相关的特性时，经常会对 **异步I/O**、**非阻塞 I/O** 有所耳闻，听起来好像是差不多的意思，但是其实是两码事，下面就以原理的角度来剖析一下对于 nodejs 来说，这两种技术底层是如何实现的?
+
+## 1. 什么是 I/O?
+
+首先，解释一下 I/O 的概念。I/O 即 **Input/Output**，输入和输出的意思。在浏览器端，只有一种 I/O，那就是利用 Ajax 发送网络请求，然后读取返回的内容，这属于 **网络I/O**。回到 nodejs 中，其实这种 I/O 的场景就更加广泛了，主要分为两种：
+
+- 文件 I/O。比如用 fs 模块对文件进行读写操作。
+- 网络 I/O。比如用 http 模块发起网络请求。
+
+
+
+## 2. 阻塞和非阻塞 I/O
+
+**阻塞** 和 **非阻塞** I/O 其实是针对操作系统内核而言的，并不是 nodejs 本身。阻塞 I/O 的特点就是一定要 **等到操作系统完成所有操作后才表示调用结束**，而非阻塞 I/O 是调用后里面返回，不用等操作系统内核完成操作。
+
+对前者而言，在操作系统进行 I/O 的操作的过程中，我，我们的应用程序其实是一直处于等待状态的，什么都做不了。那如果换成 **非阻塞 I/O**，调用返回后我们的 nodejs 应用程序就可以完成其他的事情，而操作系统同时也在进行 I/O。这样就把等待的时间充分利用了起来，提高了执行效率，但是同时又会产生一个问题，nodejs 应用程序怎么知道操作系统已经完成了 I/O 操作呢？
+
+为了让 nodejs 知道操作系统已经做完了 I/O 操作，需要重复地去操作系统那里判断一下是否完成，这种重复判断的方式就是 **轮询**。对于轮询而言，有以下这么几种方案：
+
+1. 一直轮询检查 I/O状态，直到 I/O 完成。这是最原始的方式，也是性能最低的，会让 CPU 一直耗用在等待上面，其实跟阻塞 I/O 的效果是一样的。
+2. 遍历文件描述符（即文件 I/O 时操作系统和 nodejs 之间的文件凭证）的方式来确定 I/O 是否完成，I/O 完成则文件描述符的状态改变。但 CPU 轮询消耗还是很大。
+3. epoll 模式。即在进入轮询的时候如果 I/O 未完成 CPU 就休眠，完成之后唤醒 CPU。
+
+总之，CPU要么重复检查I/O，要么重复检查文件描述符，要么休眠，都得不到很好的利用，我们希望的是:
+
+> node应用程序发起 I/O 调用后可以直接去执行别的逻辑，操作系统默默地做完 I/O之后给 nodejs 发送一个完成信号，nodejs 执行回调操作。
+
+这是理想的情况，也是异步 I/O 的效果，那么如何实现这样的效果呢？
+
+## 3. 异步 I/O 的本质
+
+Linux 原生存在这样的一种方式，即（AIO），但有两个致命的缺陷：
+
+1. 只有在 Linux 下存在，其他系统中没有异步 I/O 支持；
+2. 无法利用系统缓存。
+
+### nodejs 中的异步 I/O 方案
+
+是不是没有办法了呢？ 在单线程的情况下确实是这样，但是如果把思路放开一点，利用多线程来考虑这个问题，就变得轻松多了。我们可以让一个进程进行计算机操作，另一个进行 I/O 调用，I/O 完成后把信号传给计算的线程，进而执行回调，这不就好了吗？没错，**异步 I/O 就是使用这样的线程池来实现的**。
+
+只不过在不同的系统下面表现会有所差异，在 Linux 下可以直接使用线程池来完成，在 Window 系统下则采用 IOCP 这个系统 API（其内部还是用线程池完成的）。
+
+有了操作系统的支持，那 nodejs 如何来对接这些操作系统从而实现异步 I/O 呢？
+
+以文件为 I/O 我们以一段代码为例：
+
+```js
+et fs = require('fs');
+
+fs.readFile('/test.txt', function (err, data) {
+    console.log(data); 
+});
+```
+
+### 执行流程
+
+执行代码的过程中大概发生了这些事情：
+
+1. 首先，`fs.readFile` 调用 Node 的核心模块 `fs.js`;
+2. 接下来，Node 的核心模块调用内建模块 `node_file.cc` ，创建对应的文件 I/O 观察者对象（这个对象后面大有用！）；
+3. 最后，根据不同平台（Linux 或 window），内建模块通过 libuv 中间层进行系统调用
+
+![img](assets/16e96b899411b5a6)
+
+### libuv调用过程拆解
+
+重点来了！ libuv 中是如何来进行系统调用的呢？ 也就是 uv_fs_open() 中做了什么？
+
+#### **1. 创建请求对象**
+
+以 Windows 系统为例来说，这个函数的调用过程中，我们创建了一个文件 I/O 请求对象，并往里面注入了回调函数。
+
+```js
+req_wrap->object_->Set(oncomplete_sym, callback);
+```
+
+`req_wrap` 便是这个请求对象，`req_wrap` 中 `object_` 的 `oncomplete_sym` 属性对应的值便是我们 nodejs 应用程序代码中传入的回调函数。
+
+#### 2. 推入线程池，调用返回
+
+在这个对象包装完成后，`QueueUserWorkItem()` 方法将这个对象推进线程池中等待执行。
+
+好，至此现在 js 调用就直接返回了，我们的 js 应用程序代码可以 **继续往下执行**，当然，当前的 `I/O`
+
+操作同时也在线程池中将被执行，这不就完成了异步么？
+
+等等，别高兴太早，回调都还没执行呢！接下来便是执行回调通知的环节。
+
+#### 3. 回调通知
+
+事实上现在线程池中的 I/O 无论是阻塞还是非阻塞都已经无所谓了，因为异步的目的已经达成。重要的是 I/O 完成后会发生什么。
+
+在介绍后续的故事之前，给大家介绍两个重要的方法: `GetQueuedCompletionStatus` 和 `PostQueuedCompletionStatus`。
+
+1. 还记得之前讲过的 eventLoop 吗？在每一个Tick当中会调用`GetQueuedCompletionStatus`检查线程池中是否有执行完的请求，如果有则表示时机已经成熟，可以执行回调了。
+2. `PostQueuedCompletionStatus`方法则是向 IOCP 提交状态，告诉它当前I/O完成了。
+
+名字比较长，先介绍是为了让大家混个脸熟，至少后面出来不会感到太突兀：）
+
+我们言归正传，把后面的过程串联起来。
+
+当对应线程中的 I/O 完成后，会将获得的结果`存储`起来，保存到`相应的请求对象`中，然后调用`PostQueuedCompletionStatus()`向 IOCP 提交执行完成的状态，并且将线程还给操作系统。一旦 EventLoop 的轮询操作中，调用`GetQueuedCompletionStatus`检测到了完成的状态，就会把`请求对象`塞给I/O观察者(之前埋下伏笔，如今终于闪亮登场)。
+
+I/O 观察者现在的行为就是取出`请求对象`的`存储结果`，同时也取出它的`oncomplete_sym`属性，即回调函数(不懂这个属性的回看第1步的操作)。将前者作为函数参数传入后者，并执行后者。 这里，回调函数就成功执行啦！
+
+
+
+## 总结:
+
+1. **阻塞** 和 **非阻塞** I/O 其实是针对操作系统内核而言的。阻塞 I/O 的特点就是一定要等到操作系统完成所有操作后才表示调用结束，而非阻塞 I/O 是调用后立马返回，不用等操作系统内核完成操作。
+2. nodejs 中的异步 I/O 采用多线程的方式，由 **EventLoop**、**I/O 观察者**、**请求对象**、**线程池** 四大要素相互配合，共同实现。
+
+
+
+# 十一、JS 异步编程方案
+
+关于 JS **单线程**、**EventLoop** 以及 **异步 I/O** 这些底层的特性，我们之前做过了详细的拆解，不在赘述。在探究了底层机制后，还需要对代码的组织方式有所理解，这是离我们日常开发最接近的部分，异步代码的组织方式直接决定了 **开发** 和 **维护** 的 **效率**，其重要性也不可小觑。尽管**底层机制**没变，但异步代码的组织方式却随着 ES 标准的发展，一步步发生了巨大的**变革**！
+
+## 1. 回调函数时代
+
+相信很多 nodejs 的初学者都或多或少踩过这样的坑，node 中很多原生的 api 就是诸如这样的:
+
+```js
+fs.readFile('xxx', (err, data) => {
+
+});
+复制代码
+```
+
+典型的高阶函数，将回调函数作为函数参数传给了readFile。但久而久之，就会发现，这种传入回调的方式也存在大坑, 比如下面这样:
+
+```js
+fs.readFile('1.json', (err, data) => {
+    fs.readFile('2.json', (err, data) => {
+        fs.readFile('3.json', (err, data) => {
+            fs.readFile('4.json', (err, data) => {
+
+            });
+        });
+    });
+});
+```
+
+回调当中嵌套回调，也称回调地狱。这种代码的可读性和可维护性都是非常差的，因为嵌套的层级太多。而且还要一个严重的问题，就是每次任务可能会失败，需要在回调里面对每个任务的失败情况进行处理，增加了代码的混乱程度。
+
+
+
+## 2. Promise 时代
+
+ES6 中新增的 Promise 就很好的解决了 **回调地狱** 的问题，同时的合并了错误处理，写出来的代码类似于下面这样：
+
+```js
+readFilePromise('1.json').then(data => {
+    return readFilePromise('2.json')
+}).then(data => {
+    return readFilePromise('3.json')
+}).then(data => {
+    return readFilePromise('4.json')
+});
+```
+
+以链式调用的方式避免了大量的嵌套，也符合人的线性思维，大大方便了异步编程。
+
+
+
+## 3. co + Generator 方式
+
+利用协程完成 Generator 函数，用 co 库让代码依次执行完，同时以同步的方式书写，也让异步操作按顺序执行。
+
+```js
+co(function* () {
+  const r1 = yield readFilePromise('1.json');
+  const r2 = yield readFilePromise('2.json');
+  const r3 = yield readFilePromise('3.json');
+  const r4 = yield readFilePromise('4.json');
+})
+```
+
+## 4. async + await 方式
+
+这是 ES7 中新增的关键字，凡是加上 async 的函数都默认返回一个 Promise 对象，而更重要的是 async + await 也能让异步代码以同步的方式来书写，而不需要借助第三方库的支持。
+
+```js
+const readFileAsync = async function () {
+  const f1 = await readFilePromise('1.json')
+  const f2 = await readFilePromise('2.json')
+  const f3 = await readFilePromise('3.json')
+  const f4 = await readFilePromise('4.json')
+}
+```
+
+
+
+## 简单实现一下 node 中回调函数的机制？
+
+**回调函数**的方式其实内部利用了 **发布—订阅** 模式，在这里我们以模拟实现 node 中的 Event 模块为例来写实现回调函数的机制。
+
+```js
+function EventEmitter(){
+    this.events = new Map();
+}
+```
+
+这个 EventEmitter 一共需要实现这些方法：`addListener`，`removeListener`，`once`，`removeAllListener`，`emit`。
+
+首先是 `addListener`：
+
+```js
+// once 参数表示是否只触发一次
+const wrapCallback = (fn, once = false) => ({callback: fn, once});
+
+EventEmitter.prototype.addListener = function(type, fn, once = false){
+    let handler = this.events.get(type);
+    if (!handler) {
+        // 为 type 事件绑定回调
+        this.events.set(type, wrapCallback(fn, once));
+    } else if (handler && typeof handler.callback === 'function') {
+        // 目前 type 事件只有一个回调
+        this.events.set(type, [handler, wrapCallback(fn, once)]);
+    } else {
+        // 目前 type 事件回调数 >= 2
+        handler.push(wrapCallback(fn, once));
+    }
+}
+```
+
+removeLisener 的实现如下:
+
+```js
+EventEmitter.prototype.removeListener = function (type, listener) {
+  let handler = this.events.get(type);
+  if (!handler) return;
+  if (!Array.isArray(handler)) {
+    if (handler.callback === listener.callback) this.events.delete(type);
+    else return;
+  }
+  for (let i = 0; i < handler.length; i++) {
+    let item = handler[i];
+    if (item.callback === listener.callback) {
+      // 删除该回调，注意数组塌陷的问题，即后面的元素会往前挪一位。i 要 -- 
+      handler.splice(i, 1);
+      i--;
+      if (handler.length === 1) {
+        // 长度为 1 就不用数组存了
+        this.events.set(type, handler[0]);
+      }
+    }
+  }
+}
+```
+
+once 实现思路很简单，先调用 addListener 添加上了once标记的回调对象, 然后在 emit 的时候遍历回调列表，将标记了once: true的项remove掉即可。
+
+```js
+EventEmitter.prototype.once = function (type, fn) {
+  this.addListener(type, fn, true);
+}
+
+EventEmitter.prototype.emit = function (type, ...args) {
+  let handler = this.events.get(type);
+  if (!handler) return;
+  if (Array.isArray(handler)) {
+    // 遍历列表，执行回调
+    handler.map(item => {
+      item.callback.apply(this, args);
+      // 标记的 once: true 的项直接移除
+      if (item.once) this.removeListener(type, item);
+    })
+  } else {
+    // 只有一个回调则直接执行
+    handler.callback.apply(this, args);
+  }
+  return true;
+}
+```
+
+最后是 removeAllListener：
+
+```js
+EventEmitter.prototype.removeAllListener = function (type) {
+  let handler = this.events.get(type);
+  if (!handler) return;
+  else this.events.delete(type);
+}
+```
+
+现在我们测试一下:
+
+```js
+let e = new EventEmitter();
+e.addListener('type', () => {
+  console.log("type事件触发！");
+})
+e.addListener('type', () => {
+  console.log("WOW!type事件又触发了！");
+})
+
+function f() { 
+  console.log("type事件我只触发一次"); 
+}
+e.once('type', f)
+e.emit('type');
+e.emit('type');
+e.removeAllListener('type');
+e.emit('type');
+
+// type事件触发！
+// WOW!type事件又触发了！
+// type事件我只触发一次
+// type事件触发！
+// WOW!type事件又触发了！
+```
+
+OK，一个简易的 Event 就这样实现完成了，为什么说它简易呢？因为还有很多细节的部分没有考虑:
+
+1. 在`参数少`的情况下，call 的性能优于 apply，反之 apply 的性能更好。因此在执行回调时候可以根据情况调用 call 或者 apply。
+2. 考虑到内存容量，应该设置`回调列表的最大值`，当超过最大值的时候，应该选择部分回调进行删除操作。
+3. `鲁棒性`有待提高。对于`参数的校验`很多地方直接忽略掉了。
+
+不过，这个案例的目的只是带大家掌握核心的原理，如果在这里洋洋洒洒写三四百行意义也不大，有兴趣的可以去看看Node中 [Event 模块](https://github.com/Gozala/events/blob/master/events.js) 的源码，里面对各种细节和边界情况做了详细的处理。
+
+
+
+# 十二、Promise
+
+## 1. Promise 凭什么消灭了回调地狱？
+
+### 问题
+
+首先，什么是回调地狱：
+
+1. 多层嵌套的问题。
+2. 每种任务的处理结果存在两种可能性（成功或失败），那么需要在每种任务执行结束后分别处理这两种可能性。
+
+这两种问题在回调函数时代尤为突出。Promise 的诞生就是为了解决这两个问题。
+
+### 解决方法
+
+Promise 利用了三大技术手段来解决**回调地狱**：
+
+- **回调函数延迟绑定**
+- **返回值穿透**
+- **错误冒泡**
+
+首先举个例子：
+
+```js
+let readFilePromise = (filename) =>{
+    fs.readFile(filename,(err, data)=>{
+        if(err){
+            reject(err);
+        }else{
+            resolve(data);
+        }
+    })
+}
+readFilePromise('1.json').then(data => {
+    return readFilePromise('2.json');
+});
+```
+
+如上面的例子，回调函数不是直接声明的，而是在通过后面的 then 方法传入的，即延迟传入。这就是 **回调函数延迟绑定**。
+
+然后我们做以下微调:
+
+```js
+let x = readFilePromise('1.json').then(data => {
+  return readFilePromise('2.json')//这是返回的Promise
+});
+x.then(/* 内部逻辑省略 */)
+```
+
+
+
+会根据 then 中回调函数的传入值创建不同类型的 Promise，然后把返回的 Promise 穿透到外层，以供后续的调用。这里的 x 指的就是内部返回的 Promise，然后在 x 后面可以依次完成链式调用。
+
+这便是 **返回值穿透** 的效果。
+
+这两种技术一起作用便可以将深层的嵌套回调写成下面的形式：
+
+```js
+readFilePromise('1.json').then(data => {
+    return readFilePromise('2.json');
+}).then(data => {
+    return readFilePromise('3.json');
+}).then(data => {
+    return readFilePromise('4.json');
+});
+```
+
+这样就显得清爽了许多，更重要的是，它更符合人的线性思维，开发体验也更好。
+
+两种技术结合产生了链式调用的效果。
+
+这解决的是多层嵌套的问题，那另一个问题，即每次任务执行结束后 **分别处理成功和失败** 的情况怎么解决的呢？
+
+Promise 采用 **错误冒泡** 的方式，其实很容易理解，来看看效果：
+
+```js
+readFilePromise('1.json').then(data => {
+    return readFilePromise('2.json');
+}).then(data => {
+    return readFilePromise('3.json');
+}).then(data => {
+    return readFilePromise('4.json');
+}).catch(err => {
+  // xxx
+})
+```
+
+这样前面产生的错误会一直向后传递，被 catch 接收到，就不用频繁地检查错误了。
+
+### 解决效果
+
+1. 实现链式调用，解决多层嵌套问题
+2. 实现错误冒泡后一站式处理，解决每次任务中判断错误、增加代码混乱度的问题
+
+
+
+##  2. 为什么 Promise 要引入微任务？
+
+Promise 中的执行函数是同步进行的，但是里面存在着异步操作，在异步操作结束后会调用 `resolve` 方法，或者中途遇到错误调用 `reject` 方法，这两者都是作为微任务进入到 EventLoop 中。但是你有没有想过，Promise 为什么要引入微任务的方式来进行回调操作？
+
+### 解决方式
+
+回到问题本身，其实就是如何处理回调的问题。总结起来有三种方式：
+
+1. 使用同步回调，直到异步任务进行完，再进行后面的任务。
+2. 使用异步回调，将回调函数放在进行 **宏任务队列** 的队尾。
+3. 使用异步回调，将回调函数放到 **当前宏任务中** 的最后面。
+
+### 优劣对比
+
+第一种方式显然不可取，因为同步的问题非常明显，会让整个脚本阻塞住，当前任务等待，后面的任务都无法得到执行，而这部分**等待的时间** 是可以拿来完成其他事情的，导致 CPU 的利用率非常低，而且还有另外一个致命的问题，就是无法实现**延迟绑定**的效果。
+
+如果采用第二种方式，那么执行回调（`resolve/reject`）的时机应该是在前面所有的宏任务完成之后，倘若现在的任务队列非常长，那么回调迟迟得不到执行，造成应用卡顿。
+
+为了解决上述方案的问题，另外也考虑到 **延迟绑定** 的需求，Promise 采取第三种方式，即 **引入微任务**，即把 `resolve(reject)` 回调的执行放在当前宏任务的末尾。
+
+这样，利用 **微任务** 解决了两大痛点：
+
+1. 采用**异步回调**代替同步回调解决了浪费 CPU 性能的问题。
+2. 放到 **当前宏任务最后** 执行，解决了回调执行的实时性问题。
+
+好，Promise 的基本实现思想已经讲清楚了，相信大家已经知道了它`为什么这么设计`，接下来就让我们一步步弄清楚它内部到底是`怎么设计的`。
+
+
+
+## Promise 如何实现链式调用?
+
+从现在开始，我们就来动手实现一个功能完整的 Promise，一步步深挖其中的细节。我们先从链式调用开始。
+
+###  简易版实现
+
+首先写出第一版的代码：
+
+```js
+// 定义三种状态
+const PENDING = "pending";		// 进行中
+const FULFILLED = "fulfilled";	// 已成功
+const REJECTED = "rejected";	// 已失败
+
+function MyPromise(executor) {
+    let self = this;  // 缓存当前 Promise 实例
+    // 初始化实例状态
+    self.value = null;
+    self.error = null;
+    self.status = PENDING;
+    self.onFulfilled = null; // 成功的回调函数
+    self.onRejected = null;  // 失败的回调函数
+    
+    const resolve = (value) => {
+        // 若状态不为进行中，则直接返回
+        if(self.status !== PENDING) return;
+        setTimeout(()=>{
+            self.status = FULFILLED;
+            self.value = value;
+            self.onFulfilled(self.value);	// resolve时执行成功回调
+        });
+    };
+    
+    const reject = (error) => {
+        if(self.status !== PENDING) return;
+        setTimeout(() => {
+          	self.status = REJECTED;
+          	self.error = error;
+         	self.onRejected(self.error);//reject时执行失败回调
+        }); 
+    };
+    executor(resolve, reject);
+}
+MyPromise.prototype.then = function(onFulfilled, onRejected){
+    if(this.status === PENDING){
+        this.onFulfilled = onFulfilled;
+        this.onRejected = onRejected;
+    }else if(this.status === FULFILLED){
+        // 如果状态是 fulfilled ，直接执行成功回调，并将成功值传入
+        onFulfilled(this.value);
+    }else{
+        // 如果状态是 rejected，直接执行失败回调，并将失败原因传入
+        onRejected(this.error);
+    }
+    return this;
+}
+```
+
+可以看到，Promise 的本质是一个 **有限状态机**，存在三种状态：
+
+- PENDING——进行中（未完成）
+- FULFILLED——已成功
+- REJECTED——已失败
+
+状态改变规则如下图：
+
+![img](assets/16e96b8e92d3868d)
+
+对于 Promise 而言，状态的改变 **不可逆**，即由未完成变为其他状态后，就无法再改变了。
+
+不过，回到目前这一版的 Promise，还是存在一些问题的。
+
+### 设置回调数组
+
+首先只能执行一个回调函数，对于多个回调的绑定就无能为力，比如下面这样：
+
+```js
+let promise1 = new MyPromise((resolve, reject) => {
+  fs.readFile('./001.txt', (err, data) => {
+    if(!err){
+      resolve(data);
+    }else {
+      reject(err);
+    }
+  })
+});
+
+let x1 = promise1.then(data => {
+  console.log("第一次展示", data.toString());    
+});
+
+let x2 = promise1.then(data => {
+  console.log("第二次展示", data.toString());    
+});
+
+let x3 = promise1.then(data => {
+  console.log("第三次展示", data.toString());    
+});
+```
+
+这里绑定了三个回调，想要在 `resolve()` 之后一起执行，那怎么办呢？
+
+需要将 `onFulfilled` 和 `onRejected` 改为数组，调用 `resolve` 时将其中的方法拿出来一一执行即可：
+
+```js
+self.onFulfilledCallbacks = [];
+self.onRejectedCallbacks = [];
+```
+
+```js
+MyPromise.prototype.then = function(onFulfilled, onRejected){
+    if(this.status === PENDING){
+        this.onFulfilledCallbacks.push(onFulfilled);
+        this.onRejectCallbacks.push(onRejected);
+    }else if (this.status === FULFILLED) {
+        onFulfilled(this.value);
+    } else {
+        onRejected(this.error);
+    }
+    return this;
+}
+```
+
+接下来将 `resolve` 和 `reject` 方法中执行回调的部分进行修改：
+
+```js
+// resolve 中
+self.onFulfilledCallbacks.forEach((callback) => callback(self.value));
+//reject 中
+self.onRejectedCallbacks.forEach((callback) => callback(self.error));
+```
+
+### 链式调用完成
+
+我们采用目前的代码来进行测试:
+
+```js
+let fs = require('fs');
+let readFilePromise = (filename) => {
+  return new MyPromise((resolve, reject) => {
+    fs.readFile(filename, (err, data) => {
+      if(!err){
+        resolve(data);
+      }else {
+        reject(err);
+      }
+    })
+  })
+}
+readFilePromise('./001.txt').then(data => {
+  console.log(data.toString());    
+  return readFilePromise('./002.txt');
+}).then(data => {
+  console.log(data.toString());
+})
+// 001.txt的内容
+// 001.txt的内容
+```
+
+咦？怎么打印了两个 `001`，第二次不是读的 `002` 文件吗？
+
+问题出在这里:
+
+```js
+MyPromise.prototype.then = function(onFulfilled, onRejected) {
+  //...
+  return this;
+}
+```
+
+这么写每次返回的都是第一个 Promise。then 函数当中返回的第二个 Promise 直接被无视了。
+
+说明 then 当中的实现还需要改进, 我们现在需要对 then 中返回值重视起来。实际上的 then 方法返回的是一个新的 Promise 实例，所以才能使用链式写法。
+
+```js
+MyPromise.prototype.then = function (onFulfilled, onRejected) {
+    let bridgePromise;
+    let self = this;
+    if(self.status === PENDING){
+        return bridgePromise = new MyPromise((resolve, reject) => {
+            self.onFulfilledCallbacks.push((value)=>{
+                try{
+                    // 拿到 then 中回调返回的结果
+                    let x = onFulfilled(value);
+                    resolve(x);
+                }catch(e){
+                    reject(e);
+                }
+            });
+            self.onRejectedCallbacks.push((error) => {
+                try {
+                  	let x = onRejected(error);
+                  	resolve(x);
+                } catch (e) {
+                  	reject(e);
+                }
+            });
+        });
+    }
+    // ...
+}
+```
+
+假若当前状态为 PENDING ，将回调数组中添加如上的函数，当 Promise 状态变化后，会遍历相应的回调数组并执行回调。
+
+但是这段程序还是存在一些问题：
+
+1. 首先 then 中的两个参数不传的情况没有处理，
+2. 假如 then 中的回调执行后返回的结果（也就是上面的 x）是一个 Promise，直接给 resolve 了，这是我们不希望看到的。
+
+怎么来解决这两个问题呢？
+
+先对参数不传的情况做判断：
+
+```js
+// 成功回调不传给它一个默认函数、
+onFulfilled = typeof onFulfilled === "function" ? onFulfilled : value => value;
+// 对于失败回调直接抛错
+onRejected = typeof onRejected === "function" ? onRejected : error => { throw error };
+```
+
+然后对**返回 Promise** 的情况进行处理：
+
+```js
+function resolvePromise(bridgePromise, x, resolve,reject){
+    // 如果 x 是一个 Promise
+    if(x instanceof MyPromise){
+        // 拆解这个 promise, 直到返回值不为 promise 为止
+        if(x.status === PENDING){
+            x.then(y => {
+            	resolvePromise(bridgePromise, y, resolve, reject);
+            }, error => {
+            	reject(error);
+            });
+        }else {
+            x.then(resolve, reject);
+        }
+    }else{
+        // 非 Promise 的话直接 resolve 即可
+        resolve(x);
+    }
+}
+```
+
+
+
