@@ -48,6 +48,9 @@ export const Compare = {
     return (a, b) => compareFn(b, a);
   }
   
-  export function defaultDiff(a, b) {
+  // export function defaultDiff(a, b) {
+  //   return Number(a) - Number(b);
+  // }
+  export function defaultDiff(a,b) {
     return Number(a) - Number(b);
   }
