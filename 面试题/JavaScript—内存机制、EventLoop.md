@@ -1106,10 +1106,13 @@ MyPromise.prototype.then = function(onFulfilled, onRejected) {
 
 这么写每次返回的都是第一个 Promise。then 函数当中返回的第二个 Promise 直接被无视了。
 
-说明 then 当中的实现还需要改进, 我们现在需要对 then 中返回值重视起来。实际上的 then 方法返回的是一个新的 Promise 实例，所以才能使用链式写法。
+说明 then 当中的实现还需要改进, 我们现在需要对 then 中返回值重视起来。
+
+**实际上的 then 方法返回的是一个新的 Promise 实例，这样才能保证后续的 then() 方法中 status 状态是可以改变的，所以才能使用链式写法。**
 
 ```js
 MyPromise.prototype.then = function (onFulfilled, onRejected) {
+    // 声明一个 Promise 对象
     let bridgePromise;
     let self = this;
     if(self.status === PENDING){
@@ -1157,8 +1160,14 @@ onRejected = typeof onRejected === "function" ? onRejected : error => { throw er
 
 然后对**返回 Promise** 的情况进行处理：
 
+> 这也是`Promise`中的重头戏，我来介绍一下，我们在用Promise的时候可能会发现，当then函数中return了一个值，我们可以继续then下去，不过是什么值，都能在下一个then中获取，还有，当我们不在then中放入参数，例：`promise.then().then()`，那么其后面的then依旧可以得到之前then返回的值。
+
 ```js
 function resolvePromise(bridgePromise, x, resolve,reject){
+    if(x === bridgePromise){
+        return new TypeError('循环引用！');
+    }
+    
     // 如果 x 是一个 Promise
     if(x instanceof MyPromise){
         // 拆解这个 promise, 直到返回值不为 promise 为止
@@ -1178,5 +1187,99 @@ function resolvePromise(bridgePromise, x, resolve,reject){
 }
 ```
 
+然后在 then 的方法实现中作如下修改:
 
+```js
+resolve(x)  ->  resolvePromise(bridgePromise, x, resolve, reject);
+```
+
+在这里大家好好体会一下拆解 Promise 的过程，其实不难理解，我要强调的是其中的递归调用始终传入的`resolve`和`reject`这两个参数是什么含义，其实他们控制的是最开始传入的`bridgePromise`的状态，这一点非常重要。
+
+紧接着，我们实现一下当 Promise 状态不为 PENDING 时的逻辑。
+
+成功状态下调用then：
+
+```js
+if (self.status === FULFILLED) {
+  return bridgePromise = new MyPromise((resolve, reject) => {
+    try {
+      // 状态变为成功，会有相应的 self.value
+      let x = onFulfilled(self.value);
+      resolvePromise(bridgePromise, x, resolve, reject);
+    } catch (e) {
+      reject(e);
+    }
+  })
+}
+```
+
+失败状态下调用then：
+
+```js
+if (self.status === REJECTED) {
+  return bridgePromise = new MyPromise((resolve, reject) => {
+    try {
+      // 状态变为失败，会有相应的 self.error
+      let x = onRejected(self.error);
+      resolvePromise(bridgePromise, x, resolve, reject);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+```
+
+romise A+中规定成功和失败的回调都是微任务，由于浏览器中 JS 触碰不到底层微任务的分配，可以直接拿 `setTimeout`(属于**宏任务**的范畴) 来模拟，用 `setTimeout`将需要执行的任务包裹 ，当然，上面的 resolve 实现也是同理, 大家注意一下即可，其实并不是真正的微任务。
+
+```js
+if (self.status === FULFILLED) {
+  return bridgePromise = new MyPromise((resolve, reject) => {
+    setTimeout(() => {
+      //...
+    })
+}
+
+if (self.status === REJECTED) {
+  return bridgePromise = new MyPromise((resolve, reject) => {
+    setTimeout(() => {
+      //...
+    })
+}
+```
+
+好了，到这里, 我们基本实现了 then 方法，现在我们拿刚刚的测试代码做一下测试, 依次打印如下:
+
+```js
+001.txt的内容
+002.txt的内容
+```
+
+可以看到，已经可以顺利地完成链式调用。
+
+### 错误捕获及冒泡机制分析
+
+现在来实现 catch 方法:
+
+```js
+Promise.prototype.catch = function (onRejected) {
+  return this.then(null, onRejected);
+}
+```
+
+对，就是这么几行，catch 原本就是 then 方法的语法糖。
+
+相比于实现来讲，更重要的是理解其中错误冒泡的机制，即中途一旦发生错误，可以在最后用 catch 捕获错误。
+
+我们回顾一下 Promise 的运作流程也不难理解，贴上一行关键的代码:
+
+```js
+// then 的实现中
+onRejected = typeof onRejected === "function" ? onRejected : error => { throw error };
+```
+
+一旦其中有一个`PENDING状态`的 Promise 出现错误后状态必然会变为`失败`, 然后执行 `onRejected`函数，而这个 onRejected 执行又会抛错，把新的 Promise 状态变为`失败`，新的 Promise 状态变为失败后又会执行`onRejected`......就这样一直抛下去，直到用`catch` 捕获到这个错误，才停止往下抛。
+
+这就是 Promise 的`错误冒泡机制`。
+
+至此，Promise 三大法宝: `回调函数延迟绑定`、`回调返回值穿透`和`错误冒泡`。
 
