@@ -151,8 +151,7 @@ sessionStorage 和 localStorage 不会自动把数据发送给服务器，仅在
 	sessionStorge 	在内存中存储，是一种会话技术，数据在当前浏览器窗口关闭后自动删除；
 	cookie 		    设置的 cookie 过期时间之前一直有效，即使窗口或浏览器关闭，过期自动销毁；
 	
-	4. 作用域不同。cookie在所有的同源窗口都是共享；sessionstorage不在不同的浏览器共享，即使
-同一页面，localstorage在所有同源窗口都是共享的。
+	4. 作用域不同。cookie在所有的同源窗口都是共享；不同浏览器无法共享`localStorage`或`sessionStorage`中的信息。- localStorage 在所有同源窗口都是共享的。- sessionStorage 在不同页面或标签页间无法共享。
 
 路径：Cookie 有路径限制，Storage 只存储在域名下
 API：Cookie 没有特定的 API，Storage 有对应的 API
