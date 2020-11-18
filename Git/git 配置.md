@@ -1,3 +1,5 @@
+搬运自——[Git 笔记 - 程序员都要掌握的 Git](https://juejin.im/post/6844903877138087950)
+
 # Git 
 
 ## 概述
@@ -30,7 +32,7 @@
   - `git add .` 表示把工作区的所有文件全部提交到版本区里面的 **暂存区**（可以重复 `add` 到暂存区）
   - 当然也可以通过 `git add ./xxx/` 一条一条分批添加到暂存区
   - `git commit -m "xxx"` 把暂存区中 **所有** 文件提交到仓库区，暂存区清空
-  - `git remote add origin https://github.com/xxx/xxx.gt` 把本地仓库与远程仓库连接起来。（只需连接一次，以后提交的时候就可以不用写这条命令了）
+  - `git remote add origin https://github.com/xxx/xxx.git` 把本地仓库与远程仓库连接起来。（只需连接一次，以后提交的时候就可以不用写这条命令了）
   - `git push -u origin master` 把仓库区的文件提交到远程仓库里。
   - 一旦提交后，如果你没有对工作区做任何修改，那么工作区就是“干净”的。会有这样的信息：`nothing to commit,working tree clean`
 
