@@ -341,7 +341,7 @@ Prop定义应该尽量详细
 
 1. common 
 
-   存放平台级公共文件，例如 css、js、less、sass等，对于公共文件中的 css、less、sass 等代码，需注释清每个选择器的意义
+   存放平台级公共文件，例如 css、js、less、sass、image等，对于公共文件中的 css、less、sass 等代码，需注释清每个选择器的意义
 
 2. components
 
@@ -355,7 +355,7 @@ Prop定义应该尽量详细
 
    路由文件夹。存放路由文件。建议路由文件名使用 index.js 命名。原因，import 引入时会默认寻找 index.js 文件。
 
-5. util
+5. utils
 
    存放 http、store 文件。http 文件为封装配置请求文件，store 为状态管理文件。同样，推荐使用 index.js 命名
 
