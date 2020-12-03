@@ -622,7 +622,7 @@ import Variable from '@/pages/variable'
 
 > import语法需要Babel添加`syntax-dynamic-import`插件。最新当vue-cli 3.0中默认添加该特性，不需要额外引用。另外，合理控制异步模块的数量。
 
-# 推荐-Vue项目目录结构
+## 推荐-Vue项目目录结构
 
 目录结构保持一致，使得多人合作容易理解与管理，提高工作效率。[Vue标准项目](https://github.com/lq782655835/standard-vue-project)
 
