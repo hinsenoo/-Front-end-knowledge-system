@@ -45,6 +45,39 @@
 }
 ```
 
+## **css命名**
+
+命名方法：BEM命名法
+
+例：`.block__element--modifier`
+
+> - 中划线 ：仅作为连字符使用，表示某个块或者某个子元素的多单词之间的连接记号。
+>
+> __ 双下划线：双下划线用来连接块和块的子元素
+>
+> _ 单下划线：单下划线用来描述一个块或者块的子元素的一种状态
+
+**Block（模块）**__**Element（元素）**--**Modifier（修饰符）**
+
+比如对话框内有一个确定按钮，这个确定按钮的类名可以是：`.alertmodal__button--done`，其中done是修饰符，表示是“表确定的那个按钮”。
+
+```html
+.form { }
+.form--theme-xmas { }
+.form--simple { }
+.form__input { }
+.form__submit { }
+.form__submit--disabled { }
+
+//对应的HTML结构如下：
+<form class="form form--theme-xmas form--simple">
+  <input class="form__input" type="text" />
+  <input
+    class="form__submit form__submit--disabled"
+    type="submit" />
+</form>
+```
+
 
 
 ## 1. 代码风格
